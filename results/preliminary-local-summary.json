@@ -1,0 +1,35 @@
+{
+  "status": "preliminary",
+  "mode": "deterministic",
+  "record_count": 60,
+  "scenario_count": 20,
+  "strict_good_medium_bad_ranking_accuracy": 1.0,
+  "ranking_failure_scenarios": [],
+  "tier_score_spearman": 0.9674610851404293,
+  "human_score_spearman": null,
+  "human_score_mae": null,
+  "repeat_judge_score_std": null,
+  "adversarial_detection_rate": 1.0,
+  "adversarial_record_count": 6,
+  "by_difficulty_mean_score": {
+    "easy": {
+      "good": 97.5,
+      "medium": 80.0,
+      "bad": 5.0
+    },
+    "medium": {
+      "good": 93.91,
+      "medium": 78.12,
+      "bad": 10.0
+    },
+    "hard": {
+      "good": 96.25,
+      "medium": 81.25,
+      "bad": 11.67
+    }
+  },
+  "notes": [
+    "Tier Spearman uses construction tiers, not human annotations.",
+    "Human agreement and repeat Hy3 judge stability are unavailable at this stage."
+  ]
+}

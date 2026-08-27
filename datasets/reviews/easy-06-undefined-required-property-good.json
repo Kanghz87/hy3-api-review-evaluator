@@ -1,0 +1,34 @@
+{
+  "report_version": "1.0",
+  "specification_title": "Undefined Required Property API",
+  "openapi_version": "3.1.0",
+  "focus": "all",
+  "executive_summary": "Grounded synthetic review for easy-06-undefined-required-property; every finding includes an existing pointer and exact quote.",
+  "findings": [
+    {
+      "finding_id": "local-schema-d4fcd6c50902",
+      "title": "Required property is not defined",
+      "category": "schema",
+      "severity": "high",
+      "location": "#/components/schemas/Item/required",
+      "evidence": [
+        {
+          "pointer": "#/components/schemas/Item/required",
+          "quote": "[\"id\",\"name\",\"ownerId\"]",
+          "description": ""
+        }
+      ],
+      "rationale": "Schema 'Item' requires 'ownerId', but properties does not define it.",
+      "suggestion": "Define properties.ownerId or remove it from required.",
+      "source": "deterministic",
+      "confidence": 1.0
+    }
+  ],
+  "limitations": [],
+  "model": "hy3",
+  "usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0
+  }
+}

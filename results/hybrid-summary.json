@@ -1,0 +1,49 @@
+{
+  "status": "preliminary",
+  "mode": "hybrid",
+  "generated_at": "2026-08-22T09:10:35.429331+00:00",
+  "expected_record_count": 60,
+  "completed_record_count": 60,
+  "strict_good_medium_bad_ranking_accuracy": 1.0,
+  "ranking_failure_scenarios": [],
+  "tier_score_spearman": 0.9334845807533623,
+  "human_score_spearman": null,
+  "human_score_mae": null,
+  "repeat_judge_score_std": null,
+  "adversarial_detection_rate": 1.0,
+  "adversarial_record_count": 6,
+  "by_difficulty_mean_score": {
+    "easy": {
+      "good": 95.0,
+      "medium": 84.38,
+      "bad": 0.62
+    },
+    "medium": {
+      "good": 89.38,
+      "medium": 78.75,
+      "bad": 3.44
+    },
+    "hard": {
+      "good": 95.0,
+      "medium": 84.17,
+      "bad": 3.12
+    }
+  },
+  "observed_judge_token_count": 155030,
+  "mean_reported_judge_tokens": 2583.83,
+  "projected_remaining_judge_tokens": 0,
+  "token_budget": {
+    "total_limit": 850000,
+    "total_used": 166309,
+    "total_remaining": 683691,
+    "run_limit": 180000,
+    "run_used": 140035,
+    "run_remaining": 39965,
+    "call_count": 66
+  },
+  "human_annotation_complete": false,
+  "notes": [
+    "Construction-tier metrics are not substitutes for human agreement.",
+    "The status remains preliminary until all records and all human labels exist."
+  ]
+}

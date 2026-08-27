@@ -1,0 +1,14 @@
+{
+  "target_record_count": 2,
+  "completed_at_freeze_count": 1,
+  "additional_record_count": 1,
+  "completed_record_ids_at_freeze": ["one"],
+  "additional_record_ids": ["two"],
+  "selected_record_ids": ["one", "two"],
+  "expected_distribution": {
+    "difficulty": {"easy": 1, "hard": 1},
+    "reference_tier": {"good": 1, "bad": 1},
+    "unique_scenarios": 2,
+    "adversarial_types": 1
+  }
+}

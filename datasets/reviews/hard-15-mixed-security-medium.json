@@ -1,0 +1,88 @@
+{
+  "report_version": "1.0",
+  "specification_title": "Mixed Security API",
+  "openapi_version": "3.1.0",
+  "focus": "all",
+  "executive_summary": "This synthetic medium report uses real evidence but overstates some severities and leaves several recommendations generic.",
+  "findings": [
+    {
+      "finding_id": "local-authorization-db989aded685",
+      "title": "State-changing operation is unauthenticated",
+      "category": "authorization",
+      "severity": "high",
+      "location": "#/paths/~1accounts~1{accountId}/delete",
+      "evidence": [
+        {
+          "pointer": "#/paths/~1accounts~1{accountId}/delete",
+          "quote": "{\"operationId\":\"deleteAccount\",\"parameters\":[{\"in\":\"path\",\"name\":\"accountId\",\"required\":false,\"schema\":{\"type\":\"string\"}}],\"responses\":{\"200\":{\"content\":{\"application/json\":{\"schema\":{\"items\":{\"$ref\":\"#/components/schemas/Item\"},\"type\":\"array\"}}},\"description\":\"Item list\"}},\"security\":[],\"summary\":\"Delete an account\"}",
+          "description": ""
+        }
+      ],
+      "rationale": "The API defines security schemes, but this state-changing operation has no effective requirement.",
+      "suggestion": "Improve security.",
+      "source": "deterministic",
+      "confidence": 0.65
+    },
+    {
+      "finding_id": "local-path_parameter-7b4b78c7507a",
+      "title": "Path parameter is not required",
+      "category": "path_parameter",
+      "severity": "high",
+      "location": "#/paths/~1accounts~1{accountId}/delete/parameters/0",
+      "evidence": [
+        {
+          "pointer": "#/paths/~1accounts~1{accountId}/delete/parameters/0",
+          "quote": "{\"in\":\"path\",\"name\":\"accountId\",\"required\":false,\"schema\":{\"type\":\"string\"}}",
+          "description": ""
+        }
+      ],
+      "rationale": "The in:path parameter 'accountId' is not marked required: true as OpenAPI requires.",
+      "suggestion": "Set required: true on the path parameter.",
+      "source": "deterministic",
+      "confidence": 0.65
+    },
+    {
+      "finding_id": "local-response_contract-0c3053d5e20e",
+      "title": "No error response is documented",
+      "category": "response_contract",
+      "severity": "medium",
+      "location": "#/paths/~1accounts~1{accountId}/delete/responses",
+      "evidence": [
+        {
+          "pointer": "#/paths/~1accounts~1{accountId}/delete/responses",
+          "quote": "{\"200\":{\"content\":{\"application/json\":{\"schema\":{\"items\":{\"$ref\":\"#/components/schemas/Item\"},\"type\":\"array\"}}},\"description\":\"Item list\"}}",
+          "description": ""
+        }
+      ],
+      "rationale": "The response map contains no 4xx, 5xx, or default response.",
+      "suggestion": "Improve security.",
+      "source": "deterministic",
+      "confidence": 0.65
+    },
+    {
+      "finding_id": "local-transport_security-7a93537cb1cd",
+      "title": "Remote server uses plaintext HTTP",
+      "category": "transport_security",
+      "severity": "critical",
+      "location": "#/servers/0/url",
+      "evidence": [
+        {
+          "pointer": "#/servers/0/url",
+          "quote": "http://api.example.test",
+          "description": ""
+        }
+      ],
+      "rationale": "Credentials and API traffic can be intercepted on a non-local HTTP connection.",
+      "suggestion": "Use an HTTPS endpoint and redirect or disable plaintext access.",
+      "source": "deterministic",
+      "confidence": 0.65
+    }
+  ],
+  "limitations": [],
+  "model": "hy3",
+  "usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0
+  }
+}

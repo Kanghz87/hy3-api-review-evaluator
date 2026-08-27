@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hy3-api-review-evaluator"
+version = "0.1.0"
+description = "A Hy3-powered OpenAPI review and review-quality evaluation system."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Kanghz87" },
+]
+dependencies = [
+  "openai>=1.0,<3",
+  "pandas>=2.2,<4",
+  "pydantic>=2.10,<3",
+  "python-dotenv>=1.0,<2",
+  "PyYAML>=6.0,<7",
+  "streamlit>=1.40,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2,<2",
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.25,<2",
+  "pytest-cov>=6,<8",
+  "ruff>=0.11,<1",
+]
+
+[project.scripts]
+hy3-evaluate = "hy3_api_review_evaluator.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hy3_api_review_evaluator"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"evaluation/rubric.yaml" = "hy3_api_review_evaluator/rubric.yaml"
+
+[tool.pytest.ini_options]
+addopts = "-q -p no:cacheprovider"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"app.py" = ["RUF001"]
+"annotation_app.py" = ["RUF001"]
+
+[tool.ruff.format]
+quote-style = "double"

@@ -1,0 +1,36 @@
+{
+  "report_version": "1.0",
+  "specification_title": "External Reference API",
+  "openapi_version": "3.1.0",
+  "focus": "all",
+  "executive_summary": "Grounded synthetic review for medium-12-external-reference; every finding includes an existing pointer and exact quote.",
+  "findings": [
+    {
+      "finding_id": "local-external_reference-f1f6f46be080",
+      "title": "External references were not resolved",
+      "category": "external_reference",
+      "severity": "medium",
+      "location": "#",
+      "evidence": [
+        {
+          "pointer": "#",
+          "quote": "https://schemas.example.test/partner.yaml",
+          "description": ""
+        }
+      ],
+      "rationale": "The document contains remote or file references; this application never downloads them, so dependent evidence is incomplete.",
+      "suggestion": "Bundle referenced components locally with #/ pointers before running a complete review.",
+      "source": "deterministic",
+      "confidence": 1.0
+    }
+  ],
+  "limitations": [
+    "External references were deliberately not fetched."
+  ],
+  "model": "hy3",
+  "usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0
+  }
+}

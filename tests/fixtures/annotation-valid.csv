@@ -1,0 +1,2 @@
+record_id,factual_accuracy,location_accuracy,severity_reasonableness,evidence_traceability,actionability,hallucination_control,manual_total,annotator,annotated_at
+record-1,4,4,4,4,4,4,100,owner-01,2026-08-21T00:00:00+00:00

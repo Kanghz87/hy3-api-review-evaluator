@@ -1,0 +1,52 @@
+{
+  "report_version": "1.0",
+  "specification_title": "Undefined Security Scheme API",
+  "openapi_version": "3.1.0",
+  "focus": "all",
+  "executive_summary": "Grounded synthetic review for medium-09-undefined-security-scheme; every finding includes an existing pointer and exact quote.",
+  "findings": [
+    {
+      "finding_id": "local-authentication-3f0bc7888af5",
+      "title": "Security requirement references an undefined scheme",
+      "category": "authentication",
+      "severity": "high",
+      "location": "#/security",
+      "evidence": [
+        {
+          "pointer": "#/security",
+          "quote": "[{\"oauthMissing\":[]}]",
+          "description": ""
+        }
+      ],
+      "rationale": "The global security requirement names 'oauthMissing', but components.securitySchemes does not define it.",
+      "suggestion": "Define components.securitySchemes.oauthMissing or correct the security requirement name.",
+      "source": "deterministic",
+      "confidence": 1.0
+    },
+    {
+      "finding_id": "local-authentication-8c3ab1397fff",
+      "title": "Operation references an undefined security scheme",
+      "category": "authentication",
+      "severity": "high",
+      "location": "#/security",
+      "evidence": [
+        {
+          "pointer": "#/security",
+          "quote": "[{\"oauthMissing\":[]}]",
+          "description": ""
+        }
+      ],
+      "rationale": "The effective security requirement names 'oauthMissing', which is not defined.",
+      "suggestion": "Define components.securitySchemes.oauthMissing or correct the requirement.",
+      "source": "deterministic",
+      "confidence": 1.0
+    }
+  ],
+  "limitations": [],
+  "model": "hy3",
+  "usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0
+  }
+}

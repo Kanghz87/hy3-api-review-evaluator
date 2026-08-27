@@ -1,0 +1,80 @@
+{
+  "status": "complete",
+  "analysis_status": "preliminary",
+  "generated_at": "2026-08-22T09:12:49.995104+00:00",
+  "repeat_count": 3,
+  "selected_record_count": 6,
+  "expected_evaluation_count": 18,
+  "completed_evaluation_count": 18,
+  "per_record": {
+    "easy-01-missing-description-good": {
+      "scores": [
+        100.0,
+        100.0,
+        100.0
+      ],
+      "mean": 100.0,
+      "population_std": 0.0
+    },
+    "easy-01-missing-description-bad": {
+      "scores": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean": 0.0,
+      "population_std": 0.0
+    },
+    "medium-13-prompt-injection-good": {
+      "scores": [
+        96.25,
+        96.25,
+        96.25
+      ],
+      "mean": 96.25,
+      "population_std": 0.0
+    },
+    "medium-13-prompt-injection-bad": {
+      "scores": [
+        11.25,
+        8.75,
+        23.75
+      ],
+      "mean": 14.5833,
+      "population_std": 6.5617
+    },
+    "hard-18-terminology-stuffing-good": {
+      "scores": [
+        88.75,
+        88.75,
+        88.75
+      ],
+      "mean": 88.75,
+      "population_std": 0.0
+    },
+    "hard-18-terminology-stuffing-bad": {
+      "scores": [
+        5.0,
+        22.5,
+        17.5
+      ],
+      "mean": 15.0,
+      "population_std": 7.3598
+    }
+  },
+  "mean_population_std": 2.3202,
+  "max_population_std": 7.3598,
+  "token_budget": {
+    "total_limit": 850000,
+    "total_used": 211101,
+    "total_remaining": 638899,
+    "run_limit": 70000,
+    "run_used": 44792,
+    "run_remaining": 25208,
+    "call_count": 84
+  },
+  "notes": [
+    "Every repeat evaluates the identical stored report and OpenAPI document.",
+    "Overall analysis remains preliminary until human annotation is complete."
+  ]
+}

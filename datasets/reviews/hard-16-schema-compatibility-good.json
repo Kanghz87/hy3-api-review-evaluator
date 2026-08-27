@@ -1,0 +1,52 @@
+{
+  "report_version": "1.0",
+  "specification_title": "Closed Enum Compatibility API",
+  "openapi_version": "3.1.0",
+  "focus": "all",
+  "executive_summary": "Grounded synthetic review for hard-16-schema-compatibility; every finding includes an existing pointer and exact quote.",
+  "findings": [
+    {
+      "finding_id": "local-schema-d4fcd6c50902",
+      "title": "Required property is not defined",
+      "category": "schema",
+      "severity": "high",
+      "location": "#/components/schemas/Item/required",
+      "evidence": [
+        {
+          "pointer": "#/components/schemas/Item/required",
+          "quote": "[\"id\",\"name\",\"missingStatus\"]",
+          "description": ""
+        }
+      ],
+      "rationale": "Schema 'Item' requires 'missingStatus', but properties does not define it.",
+      "suggestion": "Define properties.missingStatus or remove it from required.",
+      "source": "deterministic",
+      "confidence": 1.0
+    },
+    {
+      "finding_id": "semantic-closed-enum",
+      "title": "Response enum has no unknown-value compatibility guidance",
+      "category": "compatibility",
+      "severity": "medium",
+      "location": "#/components/schemas/Item/properties/status",
+      "evidence": [
+        {
+          "pointer": "#/components/schemas/Item/properties/status",
+          "quote": "{\"description\":\"Current server states; future values are not documented.\",\"enum\":[\"active\",\"disabled\"],\"type\":\"string\"}",
+          "description": "Exact synthetic contract evidence."
+        }
+      ],
+      "rationale": "Generated clients may reject a future server value because the contract documents only two values and no unknown-value handling.",
+      "suggestion": "Document an unknown-value strategy for the status schema or use an extensible-enum convention supported by target SDKs.",
+      "source": "hy3",
+      "confidence": 0.95
+    }
+  ],
+  "limitations": [],
+  "model": "hy3",
+  "usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0
+  }
+}

@@ -1,0 +1,49 @@
+openapi: 3.1.0
+info:
+  title: No Success Response API
+  version: 1.0.0
+  description: Synthetic API contract used only for evaluator testing.
+servers:
+- url: https://api.example.test
+security:
+- bearerAuth: []
+paths:
+  /items:
+    get:
+      operationId: listItems
+      summary: List items
+      responses:
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Item:
+      type: object
+      required:
+      - id
+      - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string

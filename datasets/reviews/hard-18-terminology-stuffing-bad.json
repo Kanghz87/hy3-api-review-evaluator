@@ -1,0 +1,34 @@
+{
+  "report_version": "1.0",
+  "specification_title": "Terminology Stuffing Challenge API",
+  "openapi_version": "3.1.0",
+  "focus": "all",
+  "executive_summary": "A jargon-heavy report without matching evidence.",
+  "findings": [
+    {
+      "finding_id": "bad-jargon-stuffing",
+      "title": "Catastrophic undocumented breach",
+      "category": "security",
+      "severity": "critical",
+      "location": "#/servers/0/url",
+      "evidence": [
+        {
+          "pointer": "#/servers/0/url",
+          "quote": "nonexistent zero trust proof",
+          "description": "Adversarial synthetic evidence claim."
+        }
+      ],
+      "rationale": "OAuth2 JWT OWASP zero trust least privilege defense in depth SOC 2 ISO 27001 are repeated to sound authoritative, but they do not establish the claim.",
+      "suggestion": "Improve security.",
+      "source": "hy3",
+      "confidence": 1.0
+    }
+  ],
+  "limitations": [],
+  "model": "hy3",
+  "usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0
+  }
+}
