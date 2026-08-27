@@ -56,14 +56,13 @@ def _manifest() -> list[dict[str, Any]]:
 def _existing() -> dict[str, dict[str, Any]]:
     if not OUTPUT.exists():
         return {}
-    return {
-        item["record_id"]: item
-        for item in (
-            json.loads(line)
-            for line in OUTPUT.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        )
-    }
+    rows = [
+        json.loads(line) for line in OUTPUT.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+    indexed = {row["record_id"]: row for row in rows}
+    if len(indexed) != len(rows):
+        raise ValueError("Stored hybrid results contain duplicate record IDs")
+    return indexed
 
 
 def _complete_annotations(manifest: list[dict[str, Any]]) -> dict[str, float] | None:
@@ -98,9 +97,9 @@ def _record_row(record: dict[str, Any], result: Any) -> dict[str, Any]:
 def _summarize(
     manifest: list[dict[str, Any]],
     completed: dict[str, dict[str, Any]],
-    ledger: TokenBudgetLedger,
+    budget_snapshot: dict[str, Any],
 ) -> dict[str, Any]:
-    all_complete = len(completed) == len(manifest)
+    all_complete = set(completed) == {record["record_id"] for record in manifest}
     rankings: dict[str, dict[str, float]] = defaultdict(dict)
     rows: list[dict[str, Any]] = []
     for record in manifest:
@@ -189,9 +188,15 @@ def _summarize(
             if mean_judge_tokens is not None
             else None
         ),
-        "token_budget": ledger.safe_snapshot(),
+        "token_budget": budget_snapshot,
         "human_annotation_complete": annotations is not None,
         "human_annotation_scope_count": len(annotations) if annotations is not None else 0,
+        "human_annotation_target_count": len(
+            load_annotation_protocol(PROTOCOL, manifest)["selected_record_ids"]
+        ),
+        "human_annotation_full_dataset_complete": (
+            annotations is not None and len(annotations) == len(manifest)
+        ),
         "human_annotation_protocol": "datasets/annotation_protocol.json",
         "notes": [
             "Construction-tier metrics are not substitutes for human agreement.",
@@ -258,7 +263,16 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
                 ensure_ascii=False,
             )
         )
-    summary = _summarize(manifest, completed, ledger)
+    summary = _summarize(manifest, completed, ledger.safe_snapshot())
+    SUMMARY.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return summary
+
+
+def _summary_only() -> dict[str, Any]:
+    """Refresh aggregate metadata without loading .env, opening a ledger, or creating a client."""
+    previous = json.loads(SUMMARY.read_text(encoding="utf-8"))
+    summary = _summarize(_manifest(), _existing(), previous["token_budget"])
+    summary["token_budget_scope"] = "Preserved snapshot from the original hybrid run."
     SUMMARY.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return summary
 
@@ -272,6 +286,11 @@ def _parser() -> argparse.ArgumentParser:
         help="Per-process hard cap; never allowed above HY3_TOTAL_TOKEN_BUDGET.",
     )
     selection = parser.add_mutually_exclusive_group()
+    selection.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Refresh the summary from stored results and human labels; no API key or calls.",
+    )
     selection.add_argument(
         "--pilot",
         action="store_true",
@@ -288,7 +307,8 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     try:
-        result = asyncio.run(_run(_parser().parse_args()))
+        args = _parser().parse_args()
+        result = _summary_only() if args.summary_only else asyncio.run(_run(args))
     except EvaluatorError as exc:
         print(json.dumps({"status": "error", "error": str(exc)}, ensure_ascii=False))
         raise SystemExit(1) from None

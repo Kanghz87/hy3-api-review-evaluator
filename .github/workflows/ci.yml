@@ -27,8 +27,11 @@ jobs:
       - run: python scripts/validate_dataset.py
       - run: python scripts/validate_results.py
       - run: python evaluation/run_evaluation.py
+      - run: python evaluation/run_human_agreement.py --check
       - name: Require perfect controlled-tier ordering
         run: >-
           python -c "import json, pathlib;
           p=json.loads(pathlib.Path('results/preliminary-local-summary.json').read_text());
           assert p['strict_good_medium_bad_ranking_accuracy'] == 1.0"
+      - run: python -m build
+      - run: python scripts/verify_clean_install.py

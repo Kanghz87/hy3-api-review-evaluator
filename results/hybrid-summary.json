@@ -1,14 +1,14 @@
 {
-  "status": "preliminary",
+  "status": "complete",
   "mode": "hybrid",
-  "generated_at": "2026-08-22T09:10:35.429331+00:00",
+  "generated_at": "2026-08-27T06:22:38.475785+00:00",
   "expected_record_count": 60,
   "completed_record_count": 60,
   "strict_good_medium_bad_ranking_accuracy": 1.0,
   "ranking_failure_scenarios": [],
   "tier_score_spearman": 0.9334845807533623,
-  "human_score_spearman": null,
-  "human_score_mae": null,
+  "human_score_spearman": 0.9480394266171248,
+  "human_score_mae": 4.166666666666667,
   "repeat_judge_score_std": null,
   "adversarial_detection_rate": 1.0,
   "adversarial_record_count": 6,
@@ -41,9 +41,15 @@
     "run_remaining": 39965,
     "call_count": 66
   },
-  "human_annotation_complete": false,
+  "human_annotation_complete": true,
+  "human_annotation_scope_count": 33,
+  "human_annotation_target_count": 33,
+  "human_annotation_full_dataset_complete": false,
+  "human_annotation_protocol": "datasets/annotation_protocol.json",
   "notes": [
     "Construction-tier metrics are not substitutes for human agreement.",
-    "The status remains preliminary until all records and all human labels exist."
-  ]
+    "Human agreement uses the frozen stratified subset, not all 60 records.",
+    "The status remains preliminary until all automated records and protocol labels exist."
+  ],
+  "token_budget_scope": "Preserved snapshot from the original hybrid run."
 }

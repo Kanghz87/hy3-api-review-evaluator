@@ -7,7 +7,10 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from hy3_api_review_evaluator.annotation import load_annotation_protocol
+from hy3_api_review_evaluator.annotation import (
+    load_annotation_protocol,
+    validate_complete_annotations,
+)
 from hy3_api_review_evaluator.config import Settings
 from hy3_api_review_evaluator.evidence import resolve_json_pointer
 from hy3_api_review_evaluator.models import ReviewReport
@@ -104,6 +107,16 @@ def validate() -> dict[str, Any]:
     if len(adversarial_scenarios) < 6:
         raise ValueError("Dataset must include at least six adversarial scenarios")
     annotation_protocol = load_annotation_protocol(PROTOCOL, records)
+    human_path = ROOT / "datasets/annotations/human_scores.csv"
+    human_count = (
+        len(
+            validate_complete_annotations(
+                human_path, set(annotation_protocol["selected_record_ids"])
+            )
+        )
+        if human_path.exists()
+        else 0
+    )
     return {
         "valid": True,
         "scenario_count": len(by_scenario),
@@ -113,7 +126,9 @@ def validate() -> dict[str, Any]:
         "adversarial_scenario_count": len(adversarial_scenarios),
         "human_annotation_target_count": annotation_protocol["target_record_count"],
         "human_annotation_additional_count": annotation_protocol["additional_record_count"],
-        "manual_annotation_complete": False,
+        "manual_annotation_complete": human_count == annotation_protocol["target_record_count"],
+        "manual_annotation_scope_count": human_count,
+        "full_dataset_manual_annotation_complete": human_count == len(records),
     }
 
 

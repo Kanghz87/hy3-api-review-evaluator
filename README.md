@@ -4,7 +4,8 @@
 
 > **本项目为 2026 腾讯犀牛鸟开源人才培养计划个人实战作品，并非腾讯官方发布的软件。**
 
-当前实验状态为 `preliminary`：全量自动评测和重复稳定性实验已完成，人工一致性标注仍在进行。
+当前计划内实验已完成：60 条自动评测、18 次重复稳定性和 33 条单人人工验证均有实际数据。
+人工一致性仅针对冻结的合成子集，不代表多人验证或真实企业 API 上的泛化效果。
 
 人工检查 OpenAPI 文档耗时且容易遗漏；直接让大模型审查又可能出现错误定位、风险夸大、
 伪造引用或编造接口。本项目先执行可复现的本地规则，再让 Hy3 生成结构化审查报告，最后用
@@ -214,9 +215,10 @@ finding、证据状态、六维分数和总分 → 下载 JSON 或 CSV。
 | good > medium > bad 严格排序准确率 | 100% |
 | 自动分与构造档次 Spearman | 0.9675 |
 | 报告级对抗样本识别率 | 100%（6/6） |
-| 人工 Spearman / MAE | 未标注，保持空值 |
+| 人工 Spearman / MAE（N=33） | 0.9143 / 5.53 分 |
 
-这些结果是 `preliminary`。构造档次相关性不能替代人工一致性。
+基线快照保留生成时的 `preliminary` 状态。最新人工指标来自单独的
+`results/human-agreement-summary.json`；构造档次相关性不能替代人工一致性。
 
 ### 2. Hy3 全量混合评测
 
@@ -255,8 +257,10 @@ finding、证据状态、六维分数和总分 → 下载 JSON 或 CSV。
 | 对抗样本识别率 | 100%（6/6） |
 | 60 条 judge token | 155,030 |
 
-结果文件为 `results/hybrid-records.jsonl` 和 `results/hybrid-summary.json`。构造档次不是人工
-真值，因此在盲标完成前状态仍为 `preliminary`。
+33 条单人人工验证的混合 Spearman 为 0.9480，MAE 为 4.17 分（满分100）。
+
+结果文件为 `results/hybrid-records.jsonl` 和 `results/hybrid-summary.json`。33 条冻结子集的
+人工标注已完成；其余 27 条仍没有人工分数。原始模型输出不改写，当前汇总状态为 complete。
 
 ### 3. 重复评分稳定性
 
@@ -287,14 +291,24 @@ good/bad 三次完全一致；两个对抗 bad 的低分有波动，但每次都
 `datasets/annotation_protocol.json`，详细小白操作见
 [docs/annotation_guide.md](docs/annotation_guide.md)。
 
-人工标注未完成前：
+当前 33 条已由维护者完成。人工 Spearman 和 MAE 明确标为冻结子集结果（`N=33`）；60 条全量
+数据继续用于自动排序、对抗识别和难度统计。原始本地评分不会被改写；规范副本在
+`datasets/annotations/human_scores.csv`，仅将标注者代号匿名化。
 
-- `human_score_spearman` 必须为 `null`
-- `human_score_mae` 必须为 `null`
-- 总分析状态必须是 `preliminary`
+使用仓库内已保存的数据复现人工一致性，不需要 API Key、不会调用模型：
 
-完成后，人工 Spearman 和 MAE 必须明确标为冻结子集结果（`N=33`）；60 条全量数据继续用于
-自动排序、对抗识别和难度统计。
+```powershell
+.venv\Scripts\python.exe evaluation\run_human_agreement.py
+.venv\Scripts\python.exe evaluation\run_human_agreement.py --check
+.venv\Scripts\python.exe evaluation\run_hybrid_evaluation.py --summary-only
+```
+
+如果是你自己重新标注的数据，先运行 `scripts/merge_annotations.py` 验证和生成规范副本。
+缺少协议内人工评分时，不能生成完整人工指标或移除 preliminary 标记。
+
+实际对照：混合评估 MAE 为 4.17，纯规则为 5.53；26/33 条混合分与人工分相差不超过5分。
+但建议可执行性的维度 MAE 为 1.03/4，且 good 档内部 Spearman 只有 0.313。整体相关性高
+不等于所有维度都准确，详见 [分析报告](reports/analysis.md)。
 
 ## 安全设计
 
@@ -328,7 +342,9 @@ good/bad 三次完全一致；两个对抗 bad 的低分有波动，但每次都
 ```
 
 GitHub Actions 在 Python 3.11 和 3.12 上执行静态检查、测试、密钥扫描、数据集校验和确定性
-判别力实验。CI 不读取 Key，也不调用收费 API。
+判别力实验，并构建 sdist/wheel，在全新虚拟环境中验证安装、两个页面加载与人工指标复现。
+CI 不读取 Key，也不调用收费 API。最近一次本地工程验收见
+[reports/release_validation.md](reports/release_validation.md)。
 
 ## 项目结构
 

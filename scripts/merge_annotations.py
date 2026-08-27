@@ -39,13 +39,20 @@ def _expected_ids() -> set[str]:
 
 
 def merge(input_path: Path, output_path: Path) -> int:
+    if input_path.resolve() == output_path.resolve():
+        raise ValueError("The original annotation file must not be overwritten")
     rows = validate_complete_annotations(input_path, _expected_ids())
+    aliases = {
+        alias: f"human-{index:02d}"
+        for index, alias in enumerate(sorted({row["annotator"] for row in rows}), start=1)
+    }
+    normalized = [{**row, "annotator": aliases[row["annotator"]]} for row in rows]
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = output_path.with_suffix(output_path.suffix + ".tmp")
     with temporary.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=PUBLIC_FIELDS, extrasaction="ignore")
         writer.writeheader()
-        writer.writerows(sorted(rows, key=lambda row: row["record_id"]))
+        writer.writerows(sorted(normalized, key=lambda row: row["record_id"]))
     temporary.replace(output_path)
     return len(rows)
 
@@ -60,4 +67,4 @@ def _parser() -> argparse.ArgumentParser:
 if __name__ == "__main__":
     args = _parser().parse_args()
     count = merge(args.input.resolve(), args.output.resolve())
-    print(f"Published {count} validated human annotations to {args.output}")
+    print(f"Wrote {count} validated, pseudonymized annotations locally to {args.output}")

@@ -8,7 +8,16 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from hy3_api_review_evaluator.metrics import repeated_score_std, strict_ranking_accuracy
+from hy3_api_review_evaluator.annotation import (
+    load_annotation_protocol,
+    validate_complete_annotations,
+)
+from hy3_api_review_evaluator.metrics import (
+    mean_absolute_error,
+    repeated_score_std,
+    spearman_correlation,
+    strict_ranking_accuracy,
+)
 from hy3_api_review_evaluator.models import EvaluationResult, ReviewReport
 
 ROOT = Path(__file__).parents[1]
@@ -54,6 +63,28 @@ def validate() -> dict[str, Any]:
         raise ValueError("Hybrid token total does not match record-level usage")
     if not math.isclose(hybrid_summary["strict_good_medium_bad_ranking_accuracy"], accuracy):
         raise ValueError("Hybrid ranking summary does not match record-level results")
+    human_count = 0
+    if hybrid_summary.get("human_annotation_complete"):
+        protocol = load_annotation_protocol(ROOT / "datasets/annotation_protocol.json", manifest)
+        annotations = validate_complete_annotations(
+            ROOT / "datasets/annotations/human_scores.csv", set(protocol["selected_record_ids"])
+        )
+        model_scores = {row["record_id"]: row["evaluation"]["total_score"] for row in hybrid}
+        predicted = [float(model_scores[row["record_id"]]) for row in annotations]
+        human = [float(row["manual_total"]) for row in annotations]
+        human_count = len(human)
+        for key, computed in (
+            ("human_score_spearman", spearman_correlation(predicted, human)),
+            ("human_score_mae", mean_absolute_error(predicted, human)),
+        ):
+            reported = hybrid_summary[key]
+            if computed is None or reported is None:
+                if computed != reported:
+                    raise ValueError(f"Human metric missingness mismatch: {key}")
+            elif not math.isclose(computed, reported, abs_tol=1e-12):
+                raise ValueError(f"Human metric mismatch: {key}")
+        if hybrid_summary.get("human_annotation_scope_count") != human_count:
+            raise ValueError("Human annotation scope count mismatch")
 
     stability = _jsonl(RESULTS / "stability-records.jsonl")
     stability_keys = {(item["record_id"], item["repeat_index"]) for item in stability}
@@ -91,6 +122,7 @@ def validate() -> dict[str, Any]:
         "real_call_total_tokens": total_used,
         "hard_cap": total_limit,
         "human_metrics_preliminary": hybrid_summary["human_score_spearman"] is None,
+        "human_annotation_scope_count": human_count,
     }
 
 
