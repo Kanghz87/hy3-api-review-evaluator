@@ -92,6 +92,36 @@ def _fabricated_report(settings: Settings) -> tuple[object, ReviewReport]:
     )
 
 
+def _semantic_mismatch_report(settings: Settings) -> tuple[object, ReviewReport]:
+    spec = load_spec_text(VALID, "demo.yaml", settings)
+    finding = ReviewFinding(
+        finding_id="hy3-semantic-mismatch",
+        title="Title proves every operation exposes credentials",
+        category="security",
+        severity="high",
+        location="#/info/title",
+        evidence=[
+            EvidenceReference(
+                pointer="#/info/title",
+                quote="Demo",
+                description="The quote exists but does not support the security claim.",
+            )
+        ],
+        rationale="The document title allegedly proves a credential disclosure.",
+        suggestion="Remove credential disclosure from every operation response.",
+        source="hy3",
+        confidence=1.0,
+    )
+    return spec, ReviewReport(
+        specification_title=spec.title,
+        openapi_version=spec.version,
+        focus=Focus.SECURITY,
+        executive_summary="A real quote is attached to an unrelated security claim.",
+        findings=[finding],
+        limitations=[],
+    )
+
+
 def test_local_evaluator_rewards_grounded_report(settings: Settings) -> None:
     spec, report = _grounded_report(settings)
     result = evaluate_report_locally(spec, report)  # type: ignore[arg-type]
@@ -155,3 +185,28 @@ async def test_hybrid_judge_cannot_override_hard_evidence_ceiling(settings: Sett
     assert result.verdict == "fail"
     assert judge.calls[0][2] == "review-quality-judge"
     assert "UNTRUSTED_REVIEW_REPORT" in judge.calls[0][1]
+
+
+@pytest.mark.asyncio
+async def test_hybrid_judge_can_reject_semantically_unrelated_real_quote(
+    settings: Settings,
+) -> None:
+    spec, report = _semantic_mismatch_report(settings)
+    local = evaluate_report_locally(spec, report)  # type: ignore[arg-type]
+    local_scores = {item.name: item.final_score for item in local.dimension_scores}
+    assert local_scores["location_accuracy"] == 4
+    assert local_scores["evidence_traceability"] == 4
+    assert local_scores["hallucination_control"] == 4
+
+    result = await evaluate_report_hybrid(
+        spec,  # type: ignore[arg-type]
+        report,
+        max_model_chars=settings.max_model_chars,
+        client=FakeJudge(score=0, severe=True),
+    )
+    final_scores = {item.name: item.final_score for item in result.dimension_scores}
+    assert final_scores["location_accuracy"] == 0
+    assert final_scores["evidence_traceability"] == 0
+    assert final_scores["hallucination_control"] == 0
+    assert result.severe_failure
+    assert result.verdict == "fail"

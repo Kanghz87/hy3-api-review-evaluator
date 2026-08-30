@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -22,15 +23,20 @@ from hy3_api_review_evaluator.spec_loader import load_spec_bytes
 ROOT = Path(__file__).parents[1]
 SPEC_PATH = ROOT / "datasets" / "specs" / "medium-13-prompt-injection.yaml"
 OUTPUT = ROOT / "results" / "hy3-smoke.json"
+DEMO_SPEC_PATH = ROOT / "datasets" / "specs" / "hard-15-mixed-security.yaml"
+DEMO_OUTPUT = ROOT / "results" / "private" / "demo-preflight.json"
 LEDGER = ROOT / "results" / "private" / "token-ledger.json"
 
 
 async def _run(args: argparse.Namespace) -> dict[str, Any]:
-    if OUTPUT.exists() and not args.force:
-        existing = json.loads(OUTPUT.read_text(encoding="utf-8"))
+    spec_path = DEMO_SPEC_PATH if args.demo else SPEC_PATH
+    output = DEMO_OUTPUT if args.demo else OUTPUT
+    if output.exists() and not args.force:
+        existing = json.loads(output.read_text(encoding="utf-8"))
         return {
             "status": "already_complete",
-            "result_path": OUTPUT.relative_to(ROOT).as_posix(),
+            "profile": "demo" if args.demo else "default",
+            "result_path": output.relative_to(ROOT).as_posix(),
             "total_score": existing["evaluation"]["total_score"],
             "note": "Use --force only when an intentional paid rerun is required.",
         }
@@ -45,7 +51,8 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
         run_limit=args.run_token_budget,
     )
     client = Hy3Client(settings, ledger)
-    spec = load_spec_bytes(SPEC_PATH.read_bytes(), SPEC_PATH.name, settings)
+    spec = load_spec_bytes(spec_path.read_bytes(), spec_path.name, settings)
+    started = time.perf_counter()
     report = await review_spec(
         spec,
         focus=Focus.SECURITY,
@@ -58,23 +65,30 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
         max_model_chars=settings.max_model_chars,
         client=client,
     )
+    elapsed_seconds = round(time.perf_counter() - started, 2)
     payload = json.loads(build_json_export(spec, report, evaluation))
     payload["experiment"] = {
         "status": "complete",
-        "kind": "real_hy3_review_and_judge_smoke",
+        "kind": ("real_hy3_demo_preflight" if args.demo else "real_hy3_review_and_judge_smoke"),
         "completed_at": datetime.now(UTC).isoformat(),
+        "elapsed_seconds": elapsed_seconds,
         "token_budget": ledger.safe_snapshot(),
     }
-    temporary = OUTPUT.with_suffix(".json.tmp")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(OUTPUT)
+    temporary.replace(output)
     return {
         "status": "complete",
-        "result_path": OUTPUT.relative_to(ROOT).as_posix(),
+        "profile": "demo" if args.demo else "default",
+        "result_path": output.relative_to(ROOT).as_posix(),
+        "specification": spec_path.name,
+        "model": report.model,
         "finding_count": len(report.findings),
         "total_score": evaluation.total_score,
         "review_tokens": report.usage.total_tokens,
         "judge_tokens": evaluation.judge_usage.total_tokens,
+        "elapsed_seconds": elapsed_seconds,
         "token_budget": ledger.safe_snapshot(),
     }
 
@@ -82,6 +96,11 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-token-budget", type=int, default=80_000)
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Use the exact Demo specification and a private, Git-ignored preflight result.",
+    )
     parser.add_argument(
         "--force",
         action="store_true",

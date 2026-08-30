@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
@@ -42,14 +43,19 @@ async def _run_pipeline(
     focus: Focus,
     settings: Settings,
     ledger: TokenBudgetLedger,
+    on_stage: Callable[[str], None] | None = None,
 ) -> tuple[ReviewReport, EvaluationResult]:
     client = Hy3Client(settings, ledger)
+    if on_stage:
+        on_stage("review")
     report = await review_spec(
         spec,
         focus=focus,
         max_model_chars=settings.max_model_chars,
         client=client,
     )
+    if on_stage:
+        on_stage("judge")
     evaluation = await evaluate_report_hybrid(
         spec,
         report,
@@ -57,6 +63,10 @@ async def _run_pipeline(
         client=client,
     )
     return report, evaluation
+
+
+def _result_key(spec_sha256: str, focus: Focus) -> tuple[str, str]:
+    return spec_sha256, focus.value
 
 
 def _local_table(spec: LoadedSpec) -> pd.DataFrame:
@@ -80,10 +90,33 @@ def _render_results(
     evaluation: EvaluationResult,
     ledger: TokenBudgetLedger,
 ) -> None:
+    st.subheader("Hy3 结构化审查报告")
+    source_counts = {
+        source: sum(finding.source == source for finding in report.findings)
+        for source in ("deterministic", "hy3")
+    }
+    st.write(report.executive_summary)
+    st.caption(
+        f"模型：{report.model or '未报告'} · 本地规则 finding：{source_counts['deterministic']} · "
+        f"Hy3 finding：{source_counts['hy3']}"
+    )
+    if report.limitations:
+        with st.expander("报告局限性"):
+            for limitation in report.limitations:
+                st.write(f"- {limitation}")
+
     st.subheader("审查质量评估")
-    score_col, verdict_col, usage_col = st.columns(3)
+    score_col, verdict_col, model_col, usage_col = st.columns(4)
     score_col.metric("总分", f"{evaluation.total_score:.2f} / 100")
-    verdict_col.metric("结论", evaluation.verdict)
+    verdict_col.metric(
+        "结论",
+        {
+            "pass": "通过",
+            "conditional_pass": "有条件通过",
+            "fail": "不通过",
+        }[evaluation.verdict],
+    )
+    model_col.metric("模型", report.model or "未报告")
     usage_col.metric(
         "本次 Hy3 token",
         report.usage.total_tokens + evaluation.judge_usage.total_tokens,
@@ -115,6 +148,8 @@ def _render_results(
     for finding in report.findings:
         icon = SEVERITY_ICONS[finding.severity]
         with st.expander(f"{icon} [{finding.severity.upper()}] {finding.title}"):
+            source_label = "本地确定性规则" if finding.source == "deterministic" else "Hy3"
+            st.write(f"**来源：** {source_label}")
             st.write(f"**类别：** {finding.category}")
             st.code(finding.location, language=None)
             st.write(f"**原因：** {finding.rationale}")
@@ -177,6 +212,9 @@ def main() -> None:
     if uploaded is None:
         st.write("请上传一份 YAML 或 JSON 格式的 OpenAPI 3.x 文档。")
         return
+    if uploaded.size > settings.max_file_bytes:
+        st.error(f"文件超过 {settings.max_file_bytes:,} 字节的应用限制，请压缩或拆分文档后重试。")
+        return
 
     try:
         spec = load_spec_bytes(uploaded.getvalue(), uploaded.name, settings)
@@ -207,14 +245,26 @@ def main() -> None:
         disabled=not settings.api_key,
         use_container_width=True,
     ):
+        st.session_state.pop("latest_result", None)
         ledger = TokenBudgetLedger(
             Path("results/private/token-ledger.json"),
             total_limit=settings.total_token_budget,
             run_limit=settings.default_run_token_budget,
         )
         try:
-            with st.spinner("Hy3 正在生成审查报告并执行质量评估……"):
-                report, evaluation = asyncio.run(_run_pipeline(spec, focus, settings, ledger))
+            with st.status("正在准备 Hy3 审查……", expanded=True) as status:
+                stage_labels = {
+                    "review": "第 1/2 步：Hy3 正在生成结构化审查报告……",
+                    "judge": "第 2/2 步：正在校验证据并由 Hy3 评价报告质量……",
+                }
+
+                def update_stage(stage: str) -> None:
+                    status.update(label=stage_labels[stage], state="running", expanded=True)
+
+                report, evaluation = asyncio.run(
+                    _run_pipeline(spec, focus, settings, ledger, on_stage=update_stage)
+                )
+                status.update(label="Hy3 审查和质量评估已完成", state="complete", expanded=False)
         except EvaluatorError as exc:
             safe = redact_text(str(exc), exact_secrets=[settings.api_key or ""])
             st.error(safe)
@@ -223,14 +273,14 @@ def main() -> None:
             st.error(f"应用发生已隔离的错误：{safe_type}")
         else:
             st.session_state["latest_result"] = (
-                spec.sha256,
+                _result_key(spec.sha256, focus),
                 report,
                 evaluation,
                 ledger,
             )
 
     latest = st.session_state.get("latest_result")
-    if latest and latest[0] == spec.sha256:
+    if latest and latest[0] == _result_key(spec.sha256, focus):
         _render_results(spec, latest[1], latest[2], latest[3])
 
 

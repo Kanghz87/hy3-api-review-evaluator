@@ -14,16 +14,16 @@ HTML, or executed as a contract test.
 | Threat | Control | Residual risk |
 | --- | --- | --- |
 | API key committed to Git | `.env` and secrets files ignored; Key read only from environment; repository scanner | A novel key format may evade generic patterns; exact pre-release review is still required |
-| Oversized or recursive YAML | Byte, node, and depth limits; safe loader; YAML alias rejection | A valid document near every limit can still be computationally expensive |
+| Oversized or recursive YAML | Streamlit upload cap plus byte, node, and depth limits; safe loader; YAML alias rejection | A valid document near every limit can still be computationally expensive |
 | Remote `$ref` exfiltration or SSRF | Only bounded local `#/` pointers resolve; external refs are recorded but never fetched | Review completeness is lower until the user bundles references locally |
 | Prompt injection in descriptions or examples | Explicit untrusted tags and system instructions; local findings and pointers remain authoritative | No prompt defense is perfect; output must still pass evidence and schema gates |
 | Sensitive values sent to Hy3 | Structural and regex redaction before projection and deterministic-evidence prompts | Unknown secret formats may remain; users must not upload production credentials |
-| Model invents endpoint or quote | Strict Pydantic output; pointer existence; exact quote match; high/critical failures force fail | A quote can exist while the model's semantic interpretation is still wrong |
+| Model invents endpoint or quote | Strict Pydantic output; pointer existence; exact quote match; semantic Hy3 judge; high/critical failures force fail | A real quote can still be attached to an unrelated claim; the semantic judge is required for this case |
 | Judge is manipulated by report length or jargon | Length and terminology never add score; duplicates are ignored; hard local ceilings | The semantic judge may still vary within the allowed ceiling |
 | Provider error leaks Authorization | Provider body is not exposed; errors map to status categories; exact Key scrubbed again in UI | Lower-level platform logging is outside this repository's control |
 | CSV formula injection | Cells beginning with `=`, `+`, `-`, `@`, tab, or CR are prefixed with an apostrophe | Spreadsheet software may have vendor-specific behavior |
 | Generated content is executed | Application only displays or downloads content; no shell, eval, import, or HTTP execution path | A user may manually execute downloaded advice outside the application |
-| Unexpected API spend | Persistent token ledger, conservative reservation, per-run cap, 850,000 total cap | Provider billing rules can differ from reported usage; console billing should also be monitored |
+| Unexpected API spend | Cross-process ledger lock, persistent reservations, conservative unknown-usage charge, per-run cap, 850,000 total cap | A crash can leave a fail-closed reservation; provider billing can differ from reported usage, so console billing should also be monitored |
 
 ## Input limits
 
@@ -71,4 +71,3 @@ included.
 This project does not call user APIs, execute examples, validate server implementations, download
 schemas, or prove that suggested changes are safe in a particular production system. Run any manual
 changes through normal code review, OpenAPI validation, tests, and deployment controls.
-

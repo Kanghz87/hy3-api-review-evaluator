@@ -1,394 +1,243 @@
 # Hy3 API Review Evaluator
 
-基于腾讯混元 Hy3 的 OpenAPI 智能审查与审查质量评估系统。
+[![CI](https://github.com/Kanghz87/hy3-api-review-evaluator/actions/workflows/ci.yml/badge.svg)](https://github.com/Kanghz87/hy3-api-review-evaluator/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB)](pyproject.toml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-> **本项目为 2026 腾讯犀牛鸟开源人才培养计划个人实战作品，并非腾讯官方发布的软件。**
+**基于腾讯混元 Hy3 的 OpenAPI 智能审查与审查质量评估系统。**
 
-当前计划内实验已完成：60 条自动评测、18 次重复稳定性和 33 条单人人工验证均有实际数据。
-人工一致性仅针对冻结的合成子集，不代表多人验证或真实企业 API 上的泛化效果。
+Hy3 API Review Evaluator 将确定性规则、文档证据校验与 Hy3 LLM-as-judge 结合，用于生成
+OpenAPI 审查报告，并评价报告的事实、定位、风险判断与修改建议是否可信。项目同时提供
+Streamlit 应用、六维评分 Rubric、合成评测集和可复现的实验流程，面向 API 开发者、测试工程师
+及 API 治理与大模型评估研究者。
 
-人工检查 OpenAPI 文档耗时且容易遗漏；直接让大模型审查又可能出现错误定位、风险夸大、
-伪造引用或编造接口。本项目先执行可复现的本地规则，再让 Hy3 生成结构化审查报告，最后用
-“确定性证据门禁 + Hy3 LLM-as-judge”评价报告是否准确、可追溯、可执行和无幻觉。
+> 系统评分的对象是**审查报告的质量**，不是 API 本身的安全等级，也不构成对服务端实现的安全认证。
 
-目标用户包括 API 开发者、后端工程师、架构师、测试工程师和 API 治理人员。
+[快速开始](#快速开始) · [评估方法](#评估方法) · [实验结果](#实验结果) ·
+[复现实验](#复现实验) · [文档](docs/README.md)
 
-## 功能
+## 核心功能
 
-- 上传 OpenAPI 3.x YAML 或 JSON；选择安全、设计、可靠性、兼容性或开发者体验重点。
-- 安全解析文件，限制大小、节点数和嵌套深度，拒绝 YAML alias，不下载远程 `$ref`。
-- 本地规则检查 operationId、路径参数、响应、安全方案、明文 HTTP 和 Schema 等问题。
-- 通过真实 `hy3` 模型生成经 Pydantic 验证的结构化审查报告，不存在其他模型回退。
-- 对每个 finding 验证 JSON Pointer 和逐字证据 quote。
-- 按六维 Rubric 给出 0～4 分、加权总分、通过结论和严重失败原因。
-- 检测伪造证据、编造接口、重复 finding、术语堆砌、冗长内容和提示词注入跟随。
-- 下载安全的 JSON 和 CSV；CSV 单元格会防止公式注入。
-- 提供 20 个场景、60 条报告的公开合成评测集和人工盲标页面。
-- 提供可断点续跑的 Hy3 全量评测与重复稳定性实验，强制执行 token 预算。
+- **OpenAPI 审查**：接收 OpenAPI 3.x YAML / JSON，支持安全性、设计质量、可靠性、兼容性和
+  开发者体验等审查重点；先执行本地检查，再由 Hy3 生成结构化报告。
+- **证据校验**：以 JSON Pointer 定位文档节点，检查原文引用，标记错误定位、伪造证据与编造接口。
+- **混合质量评估**：六维 0～4 分 Rubric、加权总分与严重失败门禁共同约束结果；模型评分不能
+  突破本地校验给出的上限。
+- **交互与导出**：在网页中查看问题、风险等级、文档证据和修改建议，下载 JSON / CSV 结果。
+- **评测与人工复核**：提供 20 个合成场景、60 条受控报告、人工盲标页面，以及判别力、人工
+  一致性、重复稳定性和对抗性实验脚本。
 
-## 工作原理
+## 快速开始
 
-```mermaid
-flowchart LR
-    Upload["OpenAPI 上传"] --> Loader["安全解析"]
-    Loader --> Index["JSON Pointer 证据索引"]
-    Index --> Rules["确定性规则"]
-    Index --> Redact["脱敏与限长投影"]
-    Rules --> Reviewer["Hy3 结构化审查"]
-    Redact --> Reviewer
-    Reviewer --> Verify["Schema / pointer / quote 校验"]
-    Verify --> Judge["Hy3 judge + 本地硬上限"]
-    Judge --> Gate["严重失败门禁与总分"]
-    Gate --> UI["Streamlit 展示与下载"]
-```
+### 环境要求
 
-OpenAPI、模型报告、description、example、扩展字段和引用都被视为不可信数据。Hy3 judge
-不能覆盖本地事实：不存在的 pointer 不会因为 judge 给高分而变成有效证据。
+- Python 3.11 或 3.12；CI 覆盖这两个版本。
+- Git；Windows、macOS 或 Linux 环境。
+- 使用在线审查时，需要可调用 Hy3 的腾讯云 TokenHub API Key。离线校验与指标复现不需要 Key。
 
-## Rubric
+### 1. 安装
 
-| 维度 | 权重 |
-| --- | ---: |
-| 事实准确性 | 25% |
-| 定位准确性 | 20% |
-| 严重程度合理性 | 10% |
-| 证据可追溯性 | 20% |
-| 建议可执行性 | 15% |
-| 幻觉控制 | 10% |
-
-每项只允许整数 0～4：
-
-```text
-总分 = Σ(维度分 / 4 × 权重)
-```
-
-- 80～100：通过
-- 65～79.99：有条件通过
-- 0～64.99：不通过
-- 命中严重失败规则：无论总分多少均不通过
-
-六个维度全部 30 条判定条件和严重失败规则见 [docs/rubric.md](docs/rubric.md)，机器可读版本
-见 [evaluation/rubric.yaml](evaluation/rubric.yaml)。判定不使用“比较好”“基本符合”等表述。
-
-## 环境要求
-
-- Python 3.11 或 3.12
-- Windows、macOS 或 Linux
-- 腾讯云 TokenHub API Key，并已开通 Hy3
-
-本项目使用 OpenAI Chat Completions 兼容接口：
-
-```text
-Base URL: https://tokenhub.tencentmaas.com/v1
-Model: hy3
-```
-
-接口和模型信息以腾讯云的
-[TokenHub 语言模型调用概览](https://cloud.tencent.com/document/product/1823/130079)及
-[Hy3 官方仓库](https://github.com/Tencent-Hunyuan/Hy3)为准。
-
-## 安装
-
-### Windows PowerShell
-
-```powershell
+```bash
 git clone https://github.com/Kanghz87/hy3-api-review-evaluator.git
 cd hy3-api-review-evaluator
+```
+
+<details open>
+<summary>Windows PowerShell</summary>
+
+```powershell
 python -m venv .venv
-.venv\Scripts\python.exe -m pip install -e ".[dev]"
-```
-
-### macOS / Linux
-
-```bash
-git clone https://github.com/Kanghz87/hy3-api-review-evaluator.git
-cd hy3-api-review-evaluator
-python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[dev]'
-```
-
-不参与开发时可把最后一个安装命令改为 `pip install .`。
-
-## 配置 API Key
-
-Windows：
-
-```powershell
+.venv\Scripts\python.exe -m pip install .
 Copy-Item .env.example .env
-notepad .env
 ```
 
-macOS / Linux：
+</details>
+
+<details>
+<summary>macOS / Linux</summary>
 
 ```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install .
 cp .env.example .env
 ```
 
-只在本地 `.env` 中填写：
+</details>
+
+复制配置文件仅用于首次安装；已有 `.env` 时应跳过复制，保留原配置。
+
+### 2. 配置 Hy3
+
+在本地 `.env` 中填写 API Key，也可以通过进程环境变量提供：
 
 ```dotenv
 HY3_API_KEY=your_key_here
 ```
 
-不要把真实 Key 粘贴到 Issue、截图、日志或聊天中。`.env`、`.env.*` 和 Streamlit secrets
-均已被 `.gitignore` 排除；仓库只提交空值 `.env.example`。
+默认服务地址为 `https://tokenhub.tencentmaas.com/v1`，模型固定为 `hy3`。项目使用兼容客户端
+访问 Hy3，不使用其他模型回退。Key 不应写入源码、提交记录、截图或日志；`.env` 已被 Git 忽略。
 
-主要配置：
+超时、输入大小与 token 预算等配置见[配置说明](docs/configuration.md)和
+[环境变量模板](.env.example)。
 
-| 变量 | 默认值 | 说明 |
-| --- | ---: | --- |
-| `HY3_BASE_URL` | `https://tokenhub.tencentmaas.com/v1` | 必须为 HTTPS |
-| `HY3_MODEL` | `hy3` | 只接受 `hy3`，拒绝模型替换 |
-| `HY3_REASONING_EFFORT` | `high` | `no_think`、`low` 或 `high` |
-| `HY3_MAX_RETRIES` | `0` | 为保证预算硬上限，禁止 SDK 自动重试 |
-| `HY3_MAX_FILE_BYTES` | `2000000` | 上传文件硬上限 |
-| `HY3_MAX_MODEL_CHARS` | `120000` | 单份模型投影字符上限 |
-| `HY3_MAX_OUTPUT_TOKENS` | `16000` | 单次模型最大输出 |
-| `HY3_TOTAL_TOKEN_BUDGET` | `850000` | 项目真实实验总硬上限 |
-| `HY3_DEFAULT_RUN_TOKEN_BUDGET` | `150000` | 单次进程的保守上限 |
-
-调用前使用“UTF-8 prompt 字节数 + 最大输出 + 消息余量”预留预算。达到总预算或单次预算时，
-请求会在发送前被拒绝。SDK 自动重试被强制关闭，避免一次预算预留对应多个真实请求。账本只
-记录用途和 token 数，不保存 prompt、响应或 Key。
-
-`850000` 是保险丝，不是使用目标。实验不会为了接近上限而增加调用；先用真实 pilot 的平均
-usage 估算剩余成本，断点文件会避免重复评价已经完成的记录。
-
-## 运行应用
+### 3. 启动应用
 
 Windows：
 
 ```powershell
-.venv\Scripts\streamlit.exe run app.py
+.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
 macOS / Linux：
 
 ```bash
-.venv/bin/streamlit run app.py
+.venv/bin/python -m streamlit run app.py
 ```
 
-操作流程：上传文档 → 选择重点 → 查看确定性检查 → 点击“运行 Hy3 审查并评估报告” → 查看
-finding、证据状态、六维分数和总分 → 下载 JSON 或 CSV。
+打开终端输出的本地地址，完成以下操作：
 
-一次完整操作会调用 Hy3 两次：一次生成审查报告，一次作为受约束 judge 评价报告。页面不会
-执行 OpenAPI、建议、代码块或模型生成内容。
+1. 上传 OpenAPI 文档，可使用仓库内的[混合安全问题示例](datasets/specs/hard-15-mixed-security.yaml)。
+2. 选择审查重点，查看本地规则发现的问题。
+3. 点击“运行 Hy3 审查并评估报告”。
+4. 查看六维评分、逐项证据与修改建议，下载 JSON 或 CSV。
 
-## 评测数据集
+一次成功的在线流程包含两次 Hy3 调用：生成报告和评价报告，均会产生实际 token 用量。
+输入默认限制为 2,000,000 字节；页面展示和导出的内容不会被自动执行。
 
-公开数据集全部为自构造合成内容：
+## 评估方法
 
-- 20 个 OpenAPI 场景：简单 6、中等 8、困难 6
-- YAML 10 份、JSON 10 份
-- 每个场景 good、medium、bad 三档报告，共 60 条记录
-- 覆盖安全、参数、响应、Schema、认证、兼容性和文档质量
-- 6 类明确对抗场景：提示词注入、敏感标记外传、伪造证据、术语堆砌、冗长低信息内容、
-  编造接口
+系统将“生成审查意见”与“验证审查质量”分开处理：
 
-数据说明见 [datasets/DATASET_CARD.md](datasets/DATASET_CARD.md)。重新生成与校验：
+```mermaid
+flowchart LR
+    A[OpenAPI 文档] --> B[安全解析与脱敏]
+    B --> C[确定性检查]
+    B --> D[Hy3 生成报告]
+    C --> D
+    D --> E[结构与证据校验]
+    C --> E
+    E --> F[Hy3 judge 与本地评分上限]
+    F --> G[六维分数与失败门禁]
+    G --> H[网页展示与导出]
+```
+
+| 评分维度 | 权重 | 核查内容 |
+| --- | ---: | --- |
+| 事实准确性 | 25% | 报告指出的问题是否真实存在 |
+| 定位准确性 | 20% | 路径、方法、参数、响应或 Schema 是否定位正确 |
+| 严重程度合理性 | 10% | 风险等级是否与可验证的影响相符 |
+| 证据可追溯性 | 20% | 结论能否对应到文档原文与有效引用 |
+| 建议可执行性 | 15% | 建议是否明确修改对象、动作、目标状态与必要约束 |
+| 幻觉控制 | 10% | 是否编造接口、字段、风险、规则或引用 |
+
+每个维度取整数 0～4，按下式换算为百分制：
+
+```text
+总分 = Σ（维度分 ÷ 4 × 权重）
+```
+
+总分不低于 80 为通过，65～不足 80 为有条件通过，低于 65 为不通过。命中严重失败规则时，
+无论总分多少均不通过。完整的 30 条评分条件和失败规则见[评分标准](docs/rubric.md)；
+机器可读定义见 [rubric.yaml](evaluation/rubric.yaml)。
+
+本地校验约束模型的可评分范围，但 JSON Pointer 存在、引用匹配并不等于结论在语义上成立。
+因此，评估仍需结合 Hy3 judge 和人工复核，不能仅凭引用格式判定报告正确。
+
+## 实验结果
+
+评测集由 **20 份合成 OpenAPI 文档和 60 条受控构造报告**组成，每个场景包含 good / medium /
+bad 三档。混合评估使用真实 Hy3 judge 对这些报告评分；应用的报告生成流程另有真实端到端
+验证记录。人工一致性基于其中 33 条冻结分层记录，由一名维护者通过标注界面完成评分。
+
+以下指标来自仓库保存的实际执行结果：
+
+| 指标 | 确定性基线 | Hy3 混合评估 |
+| --- | ---: | ---: |
+| 严格 good > medium > bad 排序准确率 | 100%（20/20） | 100%（20/20） |
+| 报告级对抗样本识别率 | 100%（6/6） | 100%（6/6） |
+| 与人工总分的 Spearman 相关系数（N=33） | 0.9143 | 0.9480 |
+| 与人工总分的平均绝对误差（满分 100） | 5.53 | 4.17 |
+| 与人工总分相差不超过 5 分 | 25/33 | 26/33 |
+
+重复稳定性实验对 6 条报告各评分 3 次，共 18 次真实调用；各组总分总体标准差的平均值为
+2.3202，最大值为 7.3598。仓库公开的应用验证、混合评测和稳定性实验记录累计包含 84 次
+Hy3 调用，共 211,101 token；录制前私有预检不会改写这些历史实验记录。
+
+**结果适用范围：**上述排序与识别率仅描述该合成评测集；人工指标不是多人一致性或独立外部
+测试。33 条报告共享 20 个场景，其余 27 条没有人工分数。混合方法并非所有维度都优于基线：
+建议可执行性的 MAE 为 1.03/4，good 档内部 Spearman 为 0.313，仍存在建议评分偏保守和
+同档细粒度排序能力有限的问题。
+
+实验设计、按难度统计、典型失败案例与局限性见[完整分析报告](reports/analysis.md)。
+原始结果及逐条人工对照见 [results](results/)，样本来源和构造方法见[数据卡](datasets/DATASET_CARD.md)。
+
+## 复现实验
+
+仓库包含已保存的模型输出和匿名化人工评分。以下命令仅使用本地数据，不调用 Hy3：
 
 ```powershell
-.venv\Scripts\python.exe scripts\build_dataset.py
 .venv\Scripts\python.exe scripts\validate_dataset.py
-```
-
-`reference_tier` 是构造档次，不是人工分数。所有人工字段初始为 `null`。
-
-## 运行评测
-
-### 1. 免费确定性基线
-
-```powershell
+.venv\Scripts\python.exe scripts\validate_results.py
 .venv\Scripts\python.exe evaluation\run_evaluation.py
-```
-
-输出：
-
-- `results/preliminary-local-records.csv`
-- `results/preliminary-local-summary.json`
-
-当前实际结果：
-
-| 指标 | 结果 |
-| --- | ---: |
-| 场景数 / 记录数 | 20 / 60 |
-| good > medium > bad 严格排序准确率 | 100% |
-| 自动分与构造档次 Spearman | 0.9675 |
-| 报告级对抗样本识别率 | 100%（6/6） |
-| 人工 Spearman / MAE（N=33） | 0.9143 / 5.53 分 |
-
-基线快照保留生成时的 `preliminary` 状态。最新人工指标来自单独的
-`results/human-agreement-summary.json`；构造档次相关性不能替代人工一致性。
-
-### 2. Hy3 全量混合评测
-
-先配置 `.env`。第一步运行完整 smoke，它会真实调用两次 Hy3，分别验证报告生成和 judge：
-
-```powershell
-.venv\Scripts\python.exe scripts\run_hy3_smoke.py --run-token-budget 80000
-```
-
-成功后先评测 6 条固定 pilot。它平衡 good/medium/bad、三种难度和对抗样本，并在 summary
-中给出剩余 54 条的 token 投影：
-
-```powershell
-.venv\Scripts\python.exe evaluation\run_hybrid_evaluation.py `
-  --pilot --run-token-budget 100000
-```
-
-确认投影和效果后再断点运行剩余记录：
-
-```powershell
-.venv\Scripts\python.exe evaluation\run_hybrid_evaluation.py `
-  --run-token-budget 180000
-```
-
-脚本每完成一条就追加到 `results/hybrid-records.jsonl`，中断后执行同一命令会自动跳过已完成
-记录。命令中的运行预算只是安全阈值，不会预先消耗。任何单次预算都不能超过
-`HY3_TOTAL_TOKEN_BUDGET`，历史账本也会继续计入 850,000 token 总上限。
-
-本仓库当前保存的真实 Hy3 混合实验结果：
-
-| 指标 | 实际结果 |
-| --- | ---: |
-| 完成记录 | 60 / 60 |
-| good > medium > bad 严格排序准确率 | 100%（20/20） |
-| 构造档次与混合总分 Spearman | 0.9335 |
-| 对抗样本识别率 | 100%（6/6） |
-| 60 条 judge token | 155,030 |
-
-33 条单人人工验证的混合 Spearman 为 0.9480，MAE 为 4.17 分（满分100）。
-
-结果文件为 `results/hybrid-records.jsonl` 和 `results/hybrid-summary.json`。33 条冻结子集的
-人工标注已完成；其余 27 条仍没有人工分数。原始模型输出不改写，当前汇总状态为 complete。
-
-### 3. 重复评分稳定性
-
-固定选择 6 条记录，每条重复 3 次：
-
-```powershell
-.venv\Scripts\python.exe evaluation\run_stability.py `
-  --repeats 3 --run-token-budget 70000
-```
-
-实际完成 18 次调用，消耗 44,792 token；六组平均总体标准差 2.3202，最大 7.3598。普通
-good/bad 三次完全一致；两个对抗 bad 的低分有波动，但每次都远低于 65 且命中失败门禁。
-详细结果见 `results/stability-summary.json`，脚本支持断点续跑。
-
-包括结构诊断、两次应用 smoke、60 条混合评测和 18 次稳定性实验在内，真实 Hy3 累计用量为
-211,101 token（84 次调用），约占 850,000 硬上限的 24.8%。不会为接近上限而增加实验。
-
-## 人工盲标
-
-```powershell
-.venv\Scripts\streamlit.exe run annotation_app.py
-```
-
-页面会打乱顺序并隐藏构造档次。人工协议冻结了 33 条分层记录：保留开始选择前已经完成的
-17 条，再补充 16 条低重复记录；难度和构造档次均为 11/11/11，并覆盖全部 20 个场景与六类
-对抗样本。你只需对协议内记录逐项选择六维 0～4 分。进度保存在被 Git 忽略的
-`datasets/annotations/human_scores.local.csv`。固定清单在
-`datasets/annotation_protocol.json`，详细小白操作见
-[docs/annotation_guide.md](docs/annotation_guide.md)。
-
-当前 33 条已由维护者完成。人工 Spearman 和 MAE 明确标为冻结子集结果（`N=33`）；60 条全量
-数据继续用于自动排序、对抗识别和难度统计。原始本地评分不会被改写；规范副本在
-`datasets/annotations/human_scores.csv`，仅将标注者代号匿名化。
-
-使用仓库内已保存的数据复现人工一致性，不需要 API Key、不会调用模型：
-
-```powershell
-.venv\Scripts\python.exe evaluation\run_human_agreement.py
 .venv\Scripts\python.exe evaluation\run_human_agreement.py --check
-.venv\Scripts\python.exe evaluation\run_hybrid_evaluation.py --summary-only
 ```
 
-如果是你自己重新标注的数据，先运行 `scripts/merge_annotations.py` 验证和生成规范副本。
-缺少协议内人工评分时，不能生成完整人工指标或移除 preliminary 标记。
+macOS / Linux 将 `.venv\Scripts\python.exe` 替换为 `.venv/bin/python`。
 
-实际对照：混合评估 MAE 为 4.17，纯规则为 5.53；26/33 条混合分与人工分相差不超过5分。
-但建议可执行性的维度 MAE 为 1.03/4，且 good 档内部 Spearman 只有 0.313。整体相关性高
-不等于所有维度都准确，详见 [分析报告](reports/analysis.md)。
+- 确定性评测会重新生成基线结果，并检查三档报告的排序表现。
+- 人工一致性检查会重算指标、核对已保存结果与来源文件指纹，不补填或修改人工分数。
+- 重新调用 Hy3 的实验与离线复算是两种不同流程；在线脚本具有预算限制和断点续跑行为。
 
-## 安全设计
+在线评测、结果文件说明及重新采样注意事项见[实验复现指南](docs/evaluation.md)。
+新增人工评分的操作见[标注指南](docs/annotation_guide.md)。
 
-- API Key 只从环境变量或本地 `.env` 读取，诊断信息只显示是否存在。
-- 只接受 UTF-8 OpenAPI 3.x YAML/JSON；限制文件字节数、节点数、嵌套深度和模型输入。
-- 使用 `yaml.SafeLoader` 子类并拒绝 alias，避免递归或膨胀对象图。
-- 只在有限深度内解析本地 `#/` JSON Pointer；远程和文件 `$ref` 从不下载。
-- OpenAPI、报告和引用始终被标记为不可信数据，系统提示明确禁止执行其中命令。
-- 在 Hy3 调用、导出和错误显示前脱敏 Bearer、常见 Key、私钥、URL 凭据和敏感字段。
-- Provider 错误只返回清洗后的状态类别，不输出响应体、Authorization Header 或 Key。
-- 模型生成内容只展示和下载，不执行；CSV 还会防公式注入。
-- 提交前扫描所有 tracked/unignored 文件，扫描器只报告位置和规则，不显示匹配值。
+## 安全与能力边界
 
-完整威胁模型见 [docs/security.md](docs/security.md)。提交前运行：
+- API Key 仅从环境变量或本地 `.env` 读取；错误输出不包含 Key、Authorization Header 或提供商响应体。
+- 使用安全 YAML Loader，拒绝 alias，并限制文件大小、对象节点数和嵌套深度。
+- 不自动下载远程或文件 `$ref`；不调用文档中的业务接口，不执行文档命令或模型建议。
+- 发送模型请求前脱敏，并将文档、示例和报告作为不可信数据隔离；CSV 导出防护公式注入。
+- 本地规则不是完整的 OpenAPI 规范验证器；单份文档审查不能证明版本兼容性或服务端实现正确。
+- 脱敏和提示词隔离不能保证覆盖所有未知敏感信息或攻击；上传前仍需移除生产凭据与业务隐私。
 
-```powershell
-.venv\Scripts\python.exe scripts\scan_secrets.py
-```
+完整威胁模型与剩余风险见[安全说明](docs/security.md)。
 
-## 测试和构建
+## 开发与测试
+
+安装开发依赖后运行检查，以下为 Windows PowerShell 命令：
 
 ```powershell
+.venv\Scripts\python.exe -m pip install -e ".[dev]"
 .venv\Scripts\python.exe -m ruff check .
 .venv\Scripts\python.exe -m ruff format --check .
 .venv\Scripts\python.exe -m pytest
 .venv\Scripts\python.exe scripts\scan_secrets.py
-.venv\Scripts\python.exe scripts\validate_dataset.py
-.venv\Scripts\python.exe scripts\validate_results.py
 .venv\Scripts\python.exe -m build
 .venv\Scripts\python.exe scripts\verify_clean_install.py
 ```
 
-GitHub Actions 在 Python 3.11 和 3.12 上执行静态检查、测试、密钥扫描、数据集校验和确定性
-判别力实验，并构建 sdist/wheel，在全新虚拟环境中验证安装、两个页面加载与人工指标复现。
-CI 不读取 Key，也不调用收费 API。最近一次本地工程验收见
-[reports/release_validation.md](reports/release_validation.md)。
+macOS / Linux 使用 `.venv/bin/python` 作为解释器。CI 在 Python 3.11 和 3.12 上执行代码检查、
+测试、密钥扫描、数据校验、指标复现、构建和干净环境安装，不调用收费模型 API。
 
-## 项目结构
+问题反馈与改进建议可提交到[本仓库 Issues](https://github.com/Kanghz87/hy3-api-review-evaluator/issues)。
+涉及规则或评估逻辑的变更应附测试，并注明对历史实验可比性的影响；请勿在 Issue 中上传真实凭据。
 
-```text
-hy3-api-review-evaluator/
-├── app.py                         # 主应用
-├── annotation_app.py              # 人工盲标页面
-├── src/hy3_api_review_evaluator/  # 安全解析、Hy3、评分和导出
-├── evaluation/                    # Rubric 与实验入口
-├── datasets/                      # 20 个场景、60 条报告和 manifest
-├── results/                       # 可复现实验结果
-├── reports/analysis.md            # 方法、案例、失败模式和边界分析
-├── tests/                         # 单元和集成测试
-├── scripts/                       # 数据、密钥、安装验证工具
-├── docs/                          # Rubric、标注、安全与 Demo 文档
-├── .env.example
-├── pyproject.toml
-├── LICENSE
-└── README.md
-```
+## 文档
 
-## 两分钟 Demo
+| 文档 | 内容 |
+| --- | --- |
+| [配置说明](docs/configuration.md) | 环境变量、运行限制与预算行为 |
+| [评分标准](docs/rubric.md) | 六维 Rubric 与严重失败规则 |
+| [实验复现指南](docs/evaluation.md) | 离线复算、在线评测与结果文件 |
+| [数据卡](datasets/DATASET_CARD.md) | 样本来源、构造方法与标注协议 |
+| [人工标注指南](docs/annotation_guide.md) | 盲标流程与评分记录校验 |
+| [分析报告](reports/analysis.md) | 实验结果、分歧案例与能力边界 |
+| [Demo 前审计](reports/pre_demo_audit.md) | 最新工程复验与正式样本真实 Hy3 预检 |
+| [安全说明](docs/security.md) | 威胁模型与风险控制 |
+| [演示流程](docs/demo_script.md) | 两分钟应用演示步骤 |
 
-逐秒录制台词和操作见 [docs/demo_script.md](docs/demo_script.md)。推荐使用
-`datasets/specs/hard-15-mixed-security.yaml`，它能在两分钟内展示上传、本地发现、Hy3 审查、
-证据匹配、六维评分和下载。
+## 许可证与项目声明
 
-## 能力边界
+本项目采用 [Apache License 2.0](LICENSE) 许可证。
 
-- 本地规则不是完整 OpenAPI 规范验证器，也不能证明 API 实现与契约一致。
-- 单份文档只能发现兼容性风险；严格破坏性变更判定仍需同时提供新旧版本。
-- 脱敏是纵深防御，不是检测所有秘密格式的数学保证；上传前仍应移除真实凭据和业务数据。
-- JSON Pointer 和 quote 匹配能证明“引用存在”，不能单独证明自然语言因果解释正确，因此还需
-  Hy3 judge 和人工标注。
-- 合成数据不能代表所有企业 API，最终结论应结合真实但已脱敏的外部样本复核。
-- Hy3 judge 本身也可能波动或误判，所以本地硬上限不可被 judge 覆盖，并单独报告重复标准差。
-
-完整分析见 [reports/analysis.md](reports/analysis.md)。
-
-## 发布说明
-
-本项目由个人维护，计划验收后公开，不向 Hy3 官方仓库提交 Pull Request。
-远程仓库目前为私有；公开发布、活动提交和录屏均由维护者确认后完成。
-
-## License
-
-[Apache License 2.0](LICENSE)
+本项目为 2026 腾讯犀牛鸟开源人才培养计划个人实战作品，并非腾讯官方发布的软件。

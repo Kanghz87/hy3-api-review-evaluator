@@ -201,7 +201,13 @@ def _summarize(
         "notes": [
             "Construction-tier metrics are not substitutes for human agreement.",
             "Human agreement uses the frozen stratified subset, not all 60 records.",
-            "The status remains preliminary until all automated records and protocol labels exist.",
+            (
+                "All automated records and frozen-protocol labels are present; the aggregate "
+                "status is complete."
+                if all_complete and annotations is not None
+                else "The status remains preliminary until all automated records and protocol "
+                "labels exist."
+            ),
         ],
     }
 

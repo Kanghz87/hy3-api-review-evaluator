@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,8 +31,14 @@ class SecretFinding:
     rule: str
 
 
-def scan_text(text: str, *, path: str) -> list[SecretFinding]:
+def scan_text(
+    text: str,
+    *,
+    path: str,
+    exact_secrets: Iterable[str] = (),
+) -> list[SecretFinding]:
     findings: list[SecretFinding] = []
+    exact_values = tuple(value for value in exact_secrets if len(value) >= 8)
     for line_number, line in enumerate(text.splitlines(), start=1):
         assignment = _ASSIGNMENT.search(line)
         if assignment and assignment.group(1).strip().casefold() not in _SAFE_ASSIGNMENTS:
@@ -47,6 +54,8 @@ def scan_text(text: str, *, path: str) -> list[SecretFinding]:
             findings.append(SecretFinding(path, line_number, "authorization_bearer_value"))
         if _URL_CREDENTIAL.search(line):
             findings.append(SecretFinding(path, line_number, "url_embedded_credentials"))
+        if any(value in line for value in exact_values):
+            findings.append(SecretFinding(path, line_number, "exact_configured_secret"))
     return findings
 
 
@@ -67,8 +76,9 @@ def repository_candidates(root: Path) -> list[Path]:
     return [root / item.decode("utf-8") for item in result.stdout.split(b"\0") if item]
 
 
-def scan_repository(root: Path) -> list[SecretFinding]:
+def scan_repository(root: Path, *, exact_secrets: Iterable[str] = ()) -> list[SecretFinding]:
     findings: list[SecretFinding] = []
+    exact_values = tuple(exact_secrets)
     for path in repository_candidates(root):
         if not path.is_file() or path.stat().st_size > 5_000_000:
             continue
@@ -79,5 +89,11 @@ def scan_repository(root: Path) -> list[SecretFinding]:
             text = data.decode("utf-8-sig")
         except UnicodeDecodeError:
             continue
-        findings.extend(scan_text(text, path=path.relative_to(root).as_posix()))
+        findings.extend(
+            scan_text(
+                text,
+                path=path.relative_to(root).as_posix(),
+                exact_secrets=exact_values,
+            )
+        )
     return findings

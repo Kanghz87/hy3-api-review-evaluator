@@ -1,7 +1,7 @@
 {
   "status": "complete",
   "mode": "hybrid",
-  "generated_at": "2026-08-27T06:22:38.475785+00:00",
+  "generated_at": "2026-08-30T06:48:02.522469+00:00",
   "expected_record_count": 60,
   "completed_record_count": 60,
   "strict_good_medium_bad_ranking_accuracy": 1.0,
@@ -49,7 +49,7 @@
   "notes": [
     "Construction-tier metrics are not substitutes for human agreement.",
     "Human agreement uses the frozen stratified subset, not all 60 records.",
-    "The status remains preliminary until all automated records and protocol labels exist."
+    "All automated records and frozen-protocol labels are present; the aggregate status is complete."
   ],
   "token_budget_scope": "Preserved snapshot from the original hybrid run."
 }

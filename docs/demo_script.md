@@ -1,4 +1,4 @@
-# Two-minute demo script
+# 两分钟 Demo 录制脚本
 
 目标：在 120 秒内展示一次真实 Hy3 审查和质量评估，不显示 API Key。
 
@@ -6,7 +6,17 @@
 
 1. 完成 `.env` 配置，并确认页面侧栏只显示“Hy3 API Key: 已配置”。
 2. 可为 Demo 临时设置 `HY3_REASONING_EFFORT=low`；模型仍是实际 `hy3`，只是减少等待。
-3. 先运行一次 smoke，确认 TokenHub 可访问、预算账本有余额、响应可以解析。
+3. 用正式 Demo 样本执行一次真实预检，确认 TokenHub 可访问、预算账本有余额、响应可以解析，
+   并记录实际耗时。该命令会调用 Hy3 两次并产生 token 用量：
+
+   ```powershell
+   .venv\Scripts\python.exe scripts\run_hy3_smoke.py `
+     --demo --force --run-token-budget 80000
+   ```
+
+   输出写入被 Git 忽略的 `results/private/demo-preflight.json`。不加 `--force` 时可能只读取已有
+   预检结果，不能用于证明当前网络和服务可用。2026-08-30 的高推理强度实测为 97.69 秒、
+   18,847 token、87.50 分；本地 4 条与 Hy3 3 条 finding 的证据均匹配。
 4. 启动应用：
 
    ```powershell
@@ -56,8 +66,8 @@
 > 现在第一次调用 Hy3 生成严格 JSON 审查，第二次让 Hy3 按六维 Rubric 评价报告。每次调用
 > 都先检查 token 预算，整个实验最多 85 万 token。
 
-如果等待超过 33 秒，可在后期只加速等待区间，不删除错误或结果画面，也不要把缓存结果说成
-刚刚调用。
+高推理强度预检耗时 97.69 秒，原始录制很可能超过本时间轴。可在后期只加速等待区间，把最终
+成片压缩到本段约 33 秒；不删除错误或结果画面，也不要把缓存结果说成刚刚调用。
 
 ### 76～100 秒：评分与证据
 

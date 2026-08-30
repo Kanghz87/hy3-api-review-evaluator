@@ -55,10 +55,18 @@ class Hy3Client:
                 },
             )
         except APITimeoutError as exc:
-            self._ledger.release(reservation)
+            self._ledger.commit(
+                reservation,
+                Usage(),
+                purpose=f"{purpose}:timeout-usage-unknown",
+            )
             raise ProviderError("Hy3 request timed out; retry with a smaller document") from exc
         except APIConnectionError as exc:
-            self._ledger.release(reservation)
+            self._ledger.commit(
+                reservation,
+                Usage(),
+                purpose=f"{purpose}:connection-usage-unknown",
+            )
             raise ProviderError("Could not connect to the configured Hy3 endpoint") from exc
         except APIStatusError as exc:
             self._ledger.release(reservation)
@@ -70,21 +78,35 @@ class Hy3Client:
                 message = f"Hy3 returned provider error HTTP {exc.status_code}"
             raise ProviderError(message) from exc
         except Exception as exc:
-            self._ledger.release(reservation)
+            self._ledger.commit(
+                reservation,
+                Usage(),
+                purpose=f"{purpose}:provider-usage-unknown",
+            )
             safe_type = redact_text(
                 type(exc).__name__, exact_secrets=[self._settings.api_key or ""]
             )
             raise ProviderError(f"Hy3 request failed safely ({safe_type})") from exc
 
-        content = response.choices[0].message.content if response.choices else None
-        if not content or not content.strip():
-            self._ledger.release(reservation)
-            raise ProviderError("Hy3 returned an empty response")
-        provider_usage = response.usage
-        usage = Usage(
-            prompt_tokens=getattr(provider_usage, "prompt_tokens", 0) or 0,
-            completion_tokens=getattr(provider_usage, "completion_tokens", 0) or 0,
-            total_tokens=getattr(provider_usage, "total_tokens", 0) or 0,
-        )
+        try:
+            content = response.choices[0].message.content if response.choices else None
+            provider_usage = response.usage
+            usage = Usage(
+                prompt_tokens=getattr(provider_usage, "prompt_tokens", 0) or 0,
+                completion_tokens=getattr(provider_usage, "completion_tokens", 0) or 0,
+                total_tokens=getattr(provider_usage, "total_tokens", 0) or 0,
+            )
+        except Exception as exc:
+            self._ledger.commit(
+                reservation,
+                Usage(),
+                purpose=f"{purpose}:malformed-response-usage-unknown",
+            )
+            safe_type = redact_text(
+                type(exc).__name__, exact_secrets=[self._settings.api_key or ""]
+            )
+            raise ProviderError(f"Hy3 response could not be read safely ({safe_type})") from exc
         self._ledger.commit(reservation, usage, purpose=purpose)
+        if not content or not content.strip():
+            raise ProviderError("Hy3 returned an empty response; reported usage was recorded")
         return ModelReply(content=content.strip(), usage=usage)
