@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from hy3_api_review_evaluator import __version__
 from hy3_api_review_evaluator.budget import TokenBudgetLedger
 from hy3_api_review_evaluator.config import Settings
 from hy3_api_review_evaluator.errors import EvaluatorError
@@ -20,8 +21,8 @@ from hy3_api_review_evaluator.spec_loader import load_spec_bytes
 
 ROOT = Path(__file__).parents[1]
 MANIFEST = ROOT / "datasets" / "manifest.jsonl"
-OUTPUT = ROOT / "results" / "stability-records.jsonl"
-SUMMARY = ROOT / "results" / "stability-summary.json"
+OUTPUT = ROOT / "results" / __version__ / "stability-records.jsonl"
+SUMMARY = ROOT / "results" / __version__ / "stability-summary.json"
 LEDGER = ROOT / "results" / "private" / "token-ledger.json"
 SELECTED_RECORDS = (
     "easy-01-missing-description-good",
@@ -51,7 +52,14 @@ def _existing() -> dict[str, dict[str, Any]]:
     for line in OUTPUT.read_text(encoding="utf-8").splitlines():
         if line.strip():
             item = json.loads(line)
-            result[f"{item['record_id']}::{item['repeat_index']}"] = item
+            if item.get("implementation_version") != __version__:
+                raise ValueError("Refusing to resume results from another implementation version")
+            if item.get("evaluation_version") != "1.1":
+                raise ValueError("Refusing to resume stability results from another version")
+            key = f"{item['record_id']}::{item['repeat_index']}"
+            if key in result:
+                raise ValueError("Stored stability results contain duplicate repeat IDs")
+            result[key] = item
     return result
 
 
@@ -81,6 +89,8 @@ def _summarize(
     return {
         "status": "complete" if len(completed) >= expected else "preliminary",
         "analysis_status": "preliminary",
+        "evaluation_version": "1.1",
+        "implementation_version": __version__,
         "generated_at": datetime.now(UTC).isoformat(),
         "repeat_count": repeats,
         "selected_record_count": len(SELECTED_RECORDS),
@@ -96,12 +106,13 @@ def _summarize(
         "token_budget": ledger.safe_snapshot(),
         "notes": [
             "Every repeat evaluates the identical stored report and OpenAPI document.",
-            "Overall analysis remains preliminary until human annotation is complete.",
+            "Repeatability does not imply accuracy or new v1.1 human agreement.",
         ],
     }
 
 
 async def _run(args: argparse.Namespace) -> dict[str, Any]:
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     settings = Settings.from_env(env_file=ROOT / ".env")
     settings.require_api_key()
     if not 1_000 <= args.run_token_budget <= settings.total_token_budget:
@@ -139,6 +150,8 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
                 client=client,
             )
             item = {
+                "implementation_version": __version__,
+                "evaluation_version": "1.1",
                 "record_id": record_id,
                 "repeat_index": repeat_index,
                 "evaluated_at": datetime.now(UTC).isoformat(),

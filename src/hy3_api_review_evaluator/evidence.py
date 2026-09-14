@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from .models import EvidenceCheck, EvidenceReference
-from .redaction import redact_structure, redact_text
+from .redaction import REDACTED, DocumentRedactor, redact_text
 from .spec_loader import escape_pointer_token
 
 
@@ -17,13 +18,22 @@ def resolve_json_pointer(document: Any, pointer: str) -> tuple[bool, Any]:
         return False, None
     current = document
     for raw_token in pointer[2:].split("/"):
+        if re.search(r"~(?:[^01]|$)", raw_token):
+            return False, None
         token = raw_token.replace("~1", "/").replace("~0", "~")
         if isinstance(current, dict):
             if token not in current:
                 return False, None
             current = current[token]
         elif isinstance(current, list):
-            if not token.isdigit():
+            # Reject non-ASCII digits, leading zeros, and oversized indexes before
+            # int conversion. Model-authored pointers must never raise ValueError.
+            if (
+                not token.isascii()
+                or not token.isdecimal()
+                or (len(token) > 1 and token.startswith("0"))
+                or len(token) > len(str(len(current)))
+            ):
                 return False, None
             index = int(token)
             if index >= len(current):
@@ -44,7 +54,12 @@ def _render(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
-def check_evidence(document: dict[str, Any], evidence: EvidenceReference) -> EvidenceCheck:
+def check_evidence(
+    document: dict[str, Any],
+    evidence: EvidenceReference,
+    *,
+    redacted_document: dict[str, Any] | None = None,
+) -> EvidenceCheck:
     exists, value = resolve_json_pointer(document, evidence.pointer)
     if not exists:
         return EvidenceCheck(
@@ -54,9 +69,14 @@ def check_evidence(document: dict[str, Any], evidence: EvidenceReference) -> Evi
             reason="The JSON Pointer does not exist in the uploaded document.",
         )
     rendered = _render(value)
-    redacted_rendered = redact_text(_render(redact_structure(value)))
+    if redacted_document is None:
+        redacted_document = DocumentRedactor(document).document
+    redacted_exists, redacted_value = resolve_json_pointer(redacted_document, evidence.pointer)
+    redacted_rendered = redact_text(_render(redacted_value)) if redacted_exists else REDACTED
     quote = evidence.quote.strip()
-    quote_matches = bool(quote) and (quote in rendered or quote in redacted_rendered)
+    quote_matches = bool(quote) and (
+        quote in rendered or (redacted_exists and quote in redacted_rendered)
+    )
     reason = (
         "The pointer exists and the quote occurs in the resolved value."
         if quote_matches

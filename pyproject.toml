@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hy3-api-review-evaluator"
-version = "0.1.0"
+version = "0.2.1"
 description = "A Hy3-powered OpenAPI review and review-quality evaluation system."
 readme = "README.md"
 requires-python = ">=3.11"

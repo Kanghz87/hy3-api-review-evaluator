@@ -1,5 +1,8 @@
 # Hy3 API Review Evaluator - Evaluation Analysis
 
+> 历史记录：以下数据属于 v1.0，保留原始实验范围与日期。当前 v1.1 修订结果见
+> [修订验证报告](revision_v1_1.md)，不得将本页混合/人工成绩当作新版实测成绩。
+
 Status: **complete — frozen synthetic-study scope, N=33 human subset**
 
 Last updated: 2026-08-27

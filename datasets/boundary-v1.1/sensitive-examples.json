@@ -1,0 +1,82 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "sensitive-examples",
+    "version": "1.0.0",
+    "description": "Self-constructed boundary test; no production data."
+  },
+  "servers": [
+    {
+      "url": "https://boundary.example.test"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/items": {
+      "get": {
+        "operationId": "listItems",
+        "summary": "Read items",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          }
+        },
+        "parameters": [
+          {
+            "name": "accessToken",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "example": "synthetic-header-marker-987654"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Item": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "Credentials": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "example": "synthetic-password-marker-987654",
+            "default": "synthetic-default-marker-987654",
+            "examples": [
+              "synthetic-array-marker-987654"
+            ]
+          },
+          "username": {
+            "type": "string",
+            "example": "demo-user"
+          }
+        }
+      }
+    }
+  }
+}

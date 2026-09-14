@@ -1,0 +1,221 @@
+{
+  "export_version": "1.0",
+  "generated_at": "2026-09-11T08:57:51.602607+00:00",
+  "specification": {
+    "label": "parameter-ref.json",
+    "title": "parameter-ref",
+    "openapi_version": "3.1.0",
+    "sha256": "a3167749c576ee65fa74cf83009b7d7397b2745085baae816983f444375012f9",
+    "operation_count": 1,
+    "external_refs_not_fetched": []
+  },
+  "review": {
+    "report_version": "1.0",
+    "specification_title": "parameter-ref",
+    "openapi_version": "3.1.0",
+    "focus": "all",
+    "executive_summary": "Reviewed the supplied OpenAPI 3.1.0 document 'parameter-ref' (SHA a3167749c576ee65fa74cf83009b7d7397b2745085baae816983f444375012f9). The deterministic finding regarding path parameter 'id' not required was validated and extended with an evidenced implication: the parameter is referenced via $ref in the GET /items/{id} operation, where the path template requires the {id} segment. No other governance issues were identified. The review covered info, paths, servers, security, and components sections; no external references were unresolved (external_refs_not_fetched empty) and no truncation was indicated.",
+    "findings": [
+      {
+        "finding_id": "local-path_parameter-888f6fee86a4",
+        "title": "Path parameter is not required",
+        "category": "path_parameter",
+        "severity": "medium",
+        "location": "#/components/parameters/Id",
+        "evidence": [
+          {
+            "pointer": "#/components/parameters/Id",
+            "quote": "{\"in\":\"path\",\"name\":\"id\",\"required\":false,\"schema\":{\"type\":\"string\"}}",
+            "description": ""
+          }
+        ],
+        "rationale": "The in:path parameter 'id' is not marked required: true as OpenAPI requires.",
+        "suggestion": "Set required: true on the path parameter.",
+        "source": "deterministic",
+        "confidence": 1.0
+      }
+    ],
+    "limitations": [],
+    "review_coverage": [
+      {
+        "pointer": "#/info",
+        "quote": "\"title\":\"parameter-ref\"",
+        "description": "Reviewed info section: title and version present, description notes self-constructed boundary test."
+      },
+      {
+        "pointer": "#/paths",
+        "quote": "\"summary\":\"Read items\"",
+        "description": "Reviewed paths section: single path /items/{id} with GET operation referencing the component parameter."
+      },
+      {
+        "pointer": "#/servers",
+        "quote": "\"url\":\"https://boundary.example.test\"",
+        "description": "Reviewed servers section: one server entry."
+      },
+      {
+        "pointer": "#/security",
+        "quote": "[{\"bearerAuth\":[]}]",
+        "description": "Reviewed security section: global bearerAuth requirement."
+      },
+      {
+        "pointer": "#/components",
+        "quote": "\"securitySchemes\":{\"bearerAuth\":{\"scheme\":\"bearer\",\"type\":\"http\"}}",
+        "description": "Reviewed components: parameters, schemas, securitySchemes defined; parameter Id evaluated."
+      }
+    ],
+    "model": "hy3",
+    "usage": {
+      "prompt_tokens": 913,
+      "completion_tokens": 4835,
+      "total_tokens": 5748
+    }
+  },
+  "evaluation": {
+    "evaluation_version": "1.1",
+    "mode": "hybrid",
+    "report_sha256": "ba97eedb79c0ea81ab636f57c1c8d614062c3db7d8879c12a7ece8da3c91426c",
+    "dimension_scores": [
+      {
+        "name": "factual_accuracy",
+        "label_zh": "事实准确性",
+        "weight": 25,
+        "rule_score": 4,
+        "judge_score": 4,
+        "final_score": 4,
+        "reason": "Local: 1/1 unique findings have an existing location and an exact quote; 1/1 deterministic anchors are covered. Judge: Single finding and coverage claims directly verified by existing pointer #/components/parameters/Id and OpenAPI nodes; no erroneous facts. Applied ceiling: 4."
+      },
+      {
+        "name": "location_accuracy",
+        "label_zh": "定位准确性",
+        "weight": 20,
+        "rule_score": 4,
+        "judge_score": 4,
+        "final_score": 4,
+        "reason": "Local: 1/1 unique finding locations exist. Judge: Finding located at #/components/parameters/Id, the exact node with required:false; consistent with path parameter conclusion. Applied ceiling: 4."
+      },
+      {
+        "name": "severity_reasonableness",
+        "label_zh": "严重程度合理性",
+        "weight": 10,
+        "rule_score": 4,
+        "judge_score": 4,
+        "final_score": 4,
+        "reason": "Local: 1 findings match deterministic severity anchors. Judge: Local severity_distance 0 confirms medium matches reference; no amplification or downplay. Applied ceiling: 4."
+      },
+      {
+        "name": "evidence_traceability",
+        "label_zh": "证据可追溯性",
+        "weight": 20,
+        "rule_score": 4,
+        "judge_score": 4,
+        "final_score": 4,
+        "reason": "Local: 1/1 findings contain an exact quote match. Judge: Pointer exists and quote matches verbatim at node; evidence sufficient to support conclusion. Applied ceiling: 4."
+      },
+      {
+        "name": "actionability",
+        "label_zh": "建议可执行性",
+        "weight": 15,
+        "rule_score": 4,
+        "judge_score": 4,
+        "final_score": 4,
+        "reason": "Local: 1/1 suggestions name an action and contract target. Judge: Suggestion gives action, target element from location, target state required:true, and implicit constraint; concrete and safe. Applied ceiling: 4."
+      },
+      {
+        "name": "hallucination_control",
+        "label_zh": "幻觉控制",
+        "weight": 10,
+        "rule_score": 4,
+        "judge_score": 4,
+        "final_score": 4,
+        "reason": "Local: 0/1 findings are locally unverifiable. Judge: No fabricated entities, references, or unverifiable risks; all statements trace to supplied document. Applied ceiling: 4."
+      }
+    ],
+    "total_score": 100.0,
+    "verdict": "pass",
+    "severe_failure": false,
+    "severe_failure_reasons": [],
+    "anti_gaming_flags": [],
+    "finding_assessments": [
+      {
+        "finding_id": "local-path_parameter-888f6fee86a4",
+        "severity": "medium",
+        "location_exists": true,
+        "evidence_checks": [
+          {
+            "pointer": "#/components/parameters/Id",
+            "exists": true,
+            "quote_matches": true,
+            "resolved_preview": "{\"in\":\"path\",\"name\":\"id\",\"required\":false,\"schema\":{\"type\":\"string\"}}",
+            "reason": "The pointer exists and the quote occurs in the resolved value."
+          }
+        ],
+        "anchor_finding_id": "local-path_parameter-888f6fee86a4",
+        "severity_distance": 0,
+        "suggestion_concrete": true,
+        "supported_by_local_evidence": true
+      }
+    ],
+    "judge_usage": {
+      "prompt_tokens": 2502,
+      "completion_tokens": 6951,
+      "total_tokens": 9453
+    },
+    "preliminary": true,
+    "coverage_checks": [
+      {
+        "pointer": "#/info",
+        "exists": true,
+        "quote_matches": true,
+        "resolved_preview": "{\"description\":\"Self-constructed boundary test; no production data.\",\"title\":\"parameter-ref\",\"version\":\"1.0.0\"}",
+        "reason": "The pointer exists and the quote occurs in the resolved value."
+      },
+      {
+        "pointer": "#/paths",
+        "exists": true,
+        "quote_matches": true,
+        "resolved_preview": "{\"/items/{id}\":{\"get\":{\"operationId\":\"listItems\",\"parameters\":[{\"$ref\":\"#/components/parameters/Id\"}],\"responses\":{\"200\":{\"description\":\"Success\"},\"400\":{\"description\":\"Invalid input\"}},\"summary\":\"Read items\"}}}",
+        "reason": "The pointer exists and the quote occurs in the resolved value."
+      },
+      {
+        "pointer": "#/servers",
+        "exists": true,
+        "quote_matches": true,
+        "resolved_preview": "[{\"url\":\"https://boundary.example.test\"}]",
+        "reason": "The pointer exists and the quote occurs in the resolved value."
+      },
+      {
+        "pointer": "#/security",
+        "exists": true,
+        "quote_matches": true,
+        "resolved_preview": "[{\"bearerAuth\":[]}]",
+        "reason": "The pointer exists and the quote occurs in the resolved value."
+      },
+      {
+        "pointer": "#/components",
+        "exists": true,
+        "quote_matches": true,
+        "resolved_preview": "{\"parameters\":{\"Id\":{\"in\":\"path\",\"name\":\"id\",\"required\":false,\"schema\":{\"type\":\"string\"}}},\"schemas\":{\"Item\":{\"properties\":{\"id\":{\"type\":\"string\"}},\"required\":[\"id\"],\"type\":\"object\"}},\"securitySchemes\":{\"bearerAuth\":{\"scheme\":\"bearer\",\"type\":\"http\"}}}",
+        "reason": "The pointer exists and the quote occurs in the resolved value."
+      }
+    ],
+    "coverage_complete": true
+  },
+  "experiment": {
+    "status": "complete",
+    "kind": "real_hy3_review_and_judge_smoke",
+    "profile": "parameter-ref",
+    "evaluation_version": "1.1",
+    "completed_at": "2026-09-11T08:57:51.603130+00:00",
+    "elapsed_seconds": 101.32,
+    "token_budget": {
+      "total_limit": 850000,
+      "total_used": 274629,
+      "total_remaining": 575371,
+      "reserved_tokens": 0,
+      "run_limit": 60000,
+      "run_used": 15201,
+      "run_remaining": 44799,
+      "call_count": 91
+    }
+  }
+}

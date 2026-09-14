@@ -68,7 +68,9 @@ def build() -> tuple[dict[str, Any], list[dict[str, Any]]]:
             (ROOT / meta["report_path"]).read_text(encoding="utf-8")
         )
         canonical = json.dumps(
-            report.model_dump(mode="json"),
+            report.model_dump(mode="json", exclude={"review_coverage"})
+            if not report.review_coverage
+            else report.model_dump(mode="json"),
             ensure_ascii=False,
             sort_keys=True,
             separators=(",", ":"),

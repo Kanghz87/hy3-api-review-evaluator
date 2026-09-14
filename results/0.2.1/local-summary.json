@@ -1,0 +1,76 @@
+{
+  "status": "preliminary",
+  "evaluation_version": "1.1",
+  "implementation_version": "0.2.1",
+  "mode": "deterministic",
+  "record_count": 60,
+  "scenario_count": 20,
+  "strict_good_medium_bad_ranking_accuracy": 1.0,
+  "ranking_failure_scenarios": [],
+  "tier_score_spearman": 0.966680025739886,
+  "human_score_spearman": null,
+  "human_score_mae": null,
+  "repeat_judge_score_std": null,
+  "adversarial_detection_rate": 1.0,
+  "adversarial_record_count": 6,
+  "by_difficulty_mean_score": {
+    "easy": {
+      "good": 95.83,
+      "medium": 79.17,
+      "bad": 5.0
+    },
+    "medium": {
+      "good": 96.25,
+      "medium": 80.47,
+      "bad": 10.0
+    },
+    "hard": {
+      "good": 94.58,
+      "medium": 80.42,
+      "bad": 11.67
+    }
+  },
+  "notes": [
+    "Tier Spearman uses construction tiers, not human annotations.",
+    "These are current local scores, not new Hy3 hybrid or stability measurements.",
+    "Existing human annotations use rubric v1.0; comparison is descriptive only."
+  ],
+  "comparison_to_v1_0_human_labels": {
+    "sample_count": 33,
+    "spearman": 0.9107705271516926,
+    "mae": 5.833333333333333,
+    "annotation_version": "1.0"
+  },
+  "changed_records_vs_v1_0": [
+    {
+      "record_id": "easy-06-undefined-required-property-good",
+      "old_score": 100.0,
+      "new_score": 90.0
+    },
+    {
+      "record_id": "easy-06-undefined-required-property-medium",
+      "old_score": 80.0,
+      "new_score": 75.0
+    },
+    {
+      "record_id": "medium-09-undefined-security-scheme-good",
+      "old_score": 81.25,
+      "new_score": 100.0
+    },
+    {
+      "record_id": "medium-09-undefined-security-scheme-medium",
+      "old_score": 65.0,
+      "new_score": 83.75
+    },
+    {
+      "record_id": "hard-16-schema-compatibility-good",
+      "old_score": 100.0,
+      "new_score": 90.0
+    },
+    {
+      "record_id": "hard-16-schema-compatibility-medium",
+      "old_score": 83.75,
+      "new_score": 78.75
+    }
+  ]
+}

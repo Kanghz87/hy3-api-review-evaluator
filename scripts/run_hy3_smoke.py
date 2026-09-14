@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from hy3_api_review_evaluator import __version__
 from hy3_api_review_evaluator.budget import TokenBudgetLedger
 from hy3_api_review_evaluator.config import Settings
 from hy3_api_review_evaluator.errors import EvaluatorError
@@ -22,20 +23,29 @@ from hy3_api_review_evaluator.spec_loader import load_spec_bytes
 
 ROOT = Path(__file__).parents[1]
 SPEC_PATH = ROOT / "datasets" / "specs" / "medium-13-prompt-injection.yaml"
-OUTPUT = ROOT / "results" / "hy3-smoke.json"
+OUTPUT = ROOT / "results" / __version__ / "hy3-smoke.json"
 DEMO_SPEC_PATH = ROOT / "datasets" / "specs" / "hard-15-mixed-security.yaml"
-DEMO_OUTPUT = ROOT / "results" / "private" / "demo-preflight.json"
+DEMO_OUTPUT = ROOT / "results" / "private" / f"demo-preflight-{__version__}.json"
 LEDGER = ROOT / "results" / "private" / "token-ledger.json"
 
 
 async def _run(args: argparse.Namespace) -> dict[str, Any]:
     spec_path = DEMO_SPEC_PATH if args.demo else SPEC_PATH
     output = DEMO_OUTPUT if args.demo else OUTPUT
+    profile = "demo" if args.demo else "default"
+    if args.boundary:
+        profile = args.boundary
+        spec_path = ROOT / "datasets" / "boundary-v1.1" / f"{profile}.json"
+        output = ROOT / "results" / __version__ / f"{profile}-smoke.json"
     if output.exists() and not args.force:
         existing = json.loads(output.read_text(encoding="utf-8"))
+        if existing["evaluation"].get("implementation_version") != __version__:
+            raise ValueError("Cached smoke uses another implementation version; archive it first")
+        if existing["evaluation"].get("evaluation_version") != "1.1":
+            raise ValueError("Cached smoke uses another evaluation version; archive it first")
         return {
             "status": "already_complete",
-            "profile": "demo" if args.demo else "default",
+            "profile": profile,
             "result_path": output.relative_to(ROOT).as_posix(),
             "total_score": existing["evaluation"]["total_score"],
             "note": "Use --force only when an intentional paid rerun is required.",
@@ -55,7 +65,7 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
     started = time.perf_counter()
     report = await review_spec(
         spec,
-        focus=Focus.SECURITY,
+        focus=Focus.ALL if args.boundary else Focus.SECURITY,
         max_model_chars=settings.max_model_chars,
         client=client,
     )
@@ -70,6 +80,9 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
     payload["experiment"] = {
         "status": "complete",
         "kind": ("real_hy3_demo_preflight" if args.demo else "real_hy3_review_and_judge_smoke"),
+        "profile": profile,
+        "evaluation_version": "1.1",
+        "implementation_version": __version__,
         "completed_at": datetime.now(UTC).isoformat(),
         "elapsed_seconds": elapsed_seconds,
         "token_budget": ledger.safe_snapshot(),
@@ -80,7 +93,7 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
     temporary.replace(output)
     return {
         "status": "complete",
-        "profile": "demo" if args.demo else "default",
+        "profile": profile,
         "result_path": output.relative_to(ROOT).as_posix(),
         "specification": spec_path.name,
         "model": report.model,
@@ -96,10 +109,16 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-token-budget", type=int, default=80_000)
-    parser.add_argument(
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument(
         "--demo",
         action="store_true",
         help="Use the exact Demo specification and a private, Git-ignored preflight result.",
+    )
+    selection.add_argument(
+        "--boundary",
+        choices=("clean-contract", "parameter-ref"),
+        help="Validate a v1.1 boundary document with real Hy3 reviewer and judge calls.",
     )
     parser.add_argument(
         "--force",

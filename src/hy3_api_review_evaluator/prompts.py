@@ -7,10 +7,15 @@ Review only facts visible in the supplied projection or deterministic findings. 
 endpoint, method, parameter, response, schema, policy, exploit, standard, or quotation.
 
 Return exactly one JSON object and no Markdown. It must have only these top-level keys:
-executive_summary, findings, limitations.
+executive_summary, findings, limitations, review_coverage.
 - executive_summary: a string.
 - findings: an array of finding objects; use [] when there are none.
 - limitations: an array of strings; use [] when there are none, never a single string.
+- review_coverage: an array of pointer/quote/description objects. For an empty findings array,
+  include an exact, nonempty quote at each supplied top-level section: #/info, #/paths,
+  #/servers, #/security and #/components (only sections present in the document).
+  Explain the scope of the no-findings conclusion in the summary, and disclose unresolved
+  references or truncated context. Never invent an issue just to fill findings.
 
 Every finding must have exactly these keys: finding_id, title, category, severity, location,
 evidence, rationale, suggestion, source, confidence.

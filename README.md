@@ -26,6 +26,8 @@ Streamlit 应用、六维评分 Rubric、合成评测集和可复现的实验流
 - **交互与导出**：在网页中查看问题、风险等级、文档证据和修改建议，下载 JSON / CSV 结果。
 - **评测与人工复核**：提供 20 个合成场景、60 条受控报告、人工盲标页面，以及判别力、人工
   一致性、重复稳定性和对抗性实验脚本。
+- **边界回归**：另有 12 份独立声明预期结果的文档，覆盖正常契约、局部引用、认证可选分支、
+  组合 Schema 与敏感示例；与原有人工评测集分开保存。
 
 ## 快速开始
 
@@ -101,6 +103,9 @@ macOS / Linux：
 3. 点击“运行 Hy3 审查并评估报告”。
 4. 查看六维评分、逐项证据与修改建议，下载 JSON 或 CSV。
 
+CSV 中 `record_type=evidence` 的行逐条保存发现对应的证据位置、引用和核验结果，
+通过 `id` 关联 finding，通过 `evidence_index` 区分同一发现的多条证据；敏感内容已脱敏。
+
 一次成功的在线流程包含两次 Hy3 调用：生成报告和评价报告，均会产生实际 token 用量。
 输入默认限制为 2,000,000 字节；页面展示和导出的内容不会被自动执行。
 
@@ -143,7 +148,19 @@ flowchart LR
 本地校验约束模型的可评分范围，但 JSON Pointer 存在、引用匹配并不等于结论在语义上成立。
 因此，评估仍需结合 Hy3 judge 和人工复核，不能仅凭引用格式判定报告正确。
 
+无 finding 的报告需要提供 `review_coverage` 范围证据。本地没有发现问题时，最多给出
+“有条件通过”；只有范围完整且 Hy3 judge 确认没有实质性遗漏，才可能通过。
+
 ## 实验结果
+
+**版本说明：**当前软件版本为 0.2.1、Rubric 版本为 v1.1。下表为已冻结的 **v1.0 历史实验**，
+不是新版混合评估成绩。v1.1 已离线重跑 60 条报告，严格排序仍为 20/20，对抗识别仍为 6/6，
+12 个新增边界检查全部通过。6 条历史报告的本地分数发生变化；尚未重跑新版全量 Hy3 judge
+和重复稳定性实验。新版结果标记为 preliminary，详见[修订验证报告](reports/revision_v1_1.md)。
+
+0.2.1 补齐引用及报告证据脱敏、JSON 完整性、问题去重、请求前容量检查和 judge 一致性校验。
+该补丁没有新增收费模型调用；结果写入 `results/0.2.1/`，不覆盖 `results/v1.1/` 中的既有实验。
+具体修复与离线验证见[0.2.1 加固记录](reports/hardening_0_2_1.md)。
 
 评测集由 **20 份合成 OpenAPI 文档和 60 条受控构造报告**组成，每个场景包含 good / medium /
 bad 三档。混合评估使用真实 Hy3 judge 对这些报告评分；应用的报告生成流程另有真实端到端
@@ -179,12 +196,13 @@ Hy3 调用，共 211,101 token；录制前私有预检不会改写这些历史�
 .venv\Scripts\python.exe scripts\validate_dataset.py
 .venv\Scripts\python.exe scripts\validate_results.py
 .venv\Scripts\python.exe evaluation\run_evaluation.py
+.venv\Scripts\python.exe evaluation\run_boundary_checks.py
 .venv\Scripts\python.exe evaluation\run_human_agreement.py --check
 ```
 
 macOS / Linux 将 `.venv\Scripts\python.exe` 替换为 `.venv/bin/python`。
 
-- 确定性评测会重新生成基线结果，并检查三档报告的排序表现。
+- 确定性评测在 `results/0.2.1/` 生成当前实现的基线，不覆盖历史结果；边界检查不调用模型。
 - 人工一致性检查会重算指标、核对已保存结果与来源文件指纹，不补填或修改人工分数。
 - 重新调用 Hy3 的实验与离线复算是两种不同流程；在线脚本具有预算限制和断点续跑行为。
 
@@ -232,7 +250,9 @@ macOS / Linux 使用 `.venv/bin/python` 作为解释器。CI 在 Python 3.11 和
 | [数据卡](datasets/DATASET_CARD.md) | 样本来源、构造方法与标注协议 |
 | [人工标注指南](docs/annotation_guide.md) | 盲标流程与评分记录校验 |
 | [分析报告](reports/analysis.md) | 实验结果、分歧案例与能力边界 |
-| [Demo 前审计](reports/pre_demo_audit.md) | 最新工程复验与正式样本真实 Hy3 预检 |
+| [修订验证报告](reports/revision_v1_1.md) | v1.1 修复、新版回归与历史结果可比性 |
+| [0.2.1 加固记录](reports/hardening_0_2_1.md) | 最新安全、容量和输入边界修复及离线验证 |
+| [Demo 前审计](reports/pre_demo_audit.md) | v1.0 历史工程复验与正式样本预检 |
 | [安全说明](docs/security.md) | 威胁模型与风险控制 |
 | [演示流程](docs/demo_script.md) | 两分钟应用演示步骤 |
 

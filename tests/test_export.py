@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 
+from test_redaction_boundaries import make_result
 from test_spec_loader import VALID
 
 from hy3_api_review_evaluator.config import Settings
 from hy3_api_review_evaluator.evaluator import evaluate_report_locally
 from hy3_api_review_evaluator.export import build_csv_export, build_json_export
-from hy3_api_review_evaluator.models import Focus, ReviewReport
+from hy3_api_review_evaluator.models import EvidenceReference, Focus, ReviewReport
 from hy3_api_review_evaluator.rules import audit_spec
 from hy3_api_review_evaluator.spec_loader import load_spec_text
 
@@ -48,3 +51,24 @@ def test_json_export_redacts_spec_metadata_secret(settings: Settings) -> None:
     output = build_json_export(spec, report, evaluation)
     assert secret not in output
     assert "[REDACTED]" in output
+
+
+def test_csv_exports_every_finding_reference_with_matching_status(settings):
+    spec, report, _ = make_result("synthetic-csv-password", settings)
+    report.findings[0].evidence.append(
+        EvidenceReference(pointer="#/missing", quote="=DANGEROUS()", description="False citation")
+    )
+    evaluation = evaluate_report_locally(spec, report)
+    output = build_csv_export(report, evaluation, spec=spec)
+    rows = list(csv.DictReader(io.StringIO(output)))
+    evidence_rows = [row for row in rows if row["record_type"] == "evidence"]
+    assert len(evidence_rows) == 2
+    assert [row["evidence_index"] for row in evidence_rows] == ["1", "2"]
+    assert evidence_rows[0]["quote"] == "[REDACTED]"
+    assert evidence_rows[0]["evidence_valid"] == "True"
+    assert evidence_rows[1]["location"] == "#/missing"
+    assert evidence_rows[1]["quote"] == "'=DANGEROUS()"
+    assert evidence_rows[1]["evidence_valid"] == "False"
+    assert evidence_rows[1]["reason"] == "False citation"
+    assert all(row["id"] == report.findings[0].finding_id for row in evidence_rows)
+    assert "synthetic-csv-password" not in output

@@ -1,0 +1,178 @@
+[
+  {
+    "id": "clean-contract",
+    "source": "self_constructed_synthetic",
+    "construction_method": "Complete contract without a targeted rule violation.",
+    "difficulty": "medium",
+    "human_scores": null,
+    "expected_findings": [],
+    "spec_path": "datasets/boundary-v1.1/clean-contract.json"
+  },
+  {
+    "id": "clean-composed-schema",
+    "source": "self_constructed_synthetic",
+    "construction_method": "Move property definition into allOf while retaining outer required.",
+    "difficulty": "hard",
+    "human_scores": null,
+    "expected_findings": [],
+    "spec_path": "datasets/boundary-v1.1/clean-composed-schema.json"
+  },
+  {
+    "id": "parameter-ref",
+    "source": "self_constructed_synthetic",
+    "construction_method": "Place a path parameter definition behind local references.",
+    "difficulty": "hard",
+    "human_scores": null,
+    "expected_findings": [
+      {
+        "category": "path_parameter",
+        "location": "#/components/parameters/Id",
+        "severity": "medium",
+        "title": "Path parameter is not required"
+      }
+    ],
+    "spec_path": "datasets/boundary-v1.1/parameter-ref.json"
+  },
+  {
+    "id": "parameter-ref-chain",
+    "source": "self_constructed_synthetic",
+    "construction_method": "Place a path parameter definition behind local references.",
+    "difficulty": "hard",
+    "human_scores": null,
+    "expected_findings": [
+      {
+        "category": "path_parameter",
+        "location": "#/components/parameters/Id",
+        "severity": "medium",
+        "title": "Path parameter is not required"
+      }
+    ],
+    "spec_path": "datasets/boundary-v1.1/parameter-ref-chain.json"
+  },
+  {
+    "id": "pathitem-ref",
+    "source": "self_constructed_synthetic",
+    "construction_method": "Reference a Path Item whose operation lacks operationId.",
+    "difficulty": "hard",
+    "human_scores": null,
+    "expected_findings": [
+      {
+        "category": "operation_id",
+        "location": "#/components/pathItems/Shared/get",
+        "severity": "medium",
+        "title": "operationId is missing"
+      }
+    ],
+    "spec_path": "datasets/boundary-v1.1/pathitem-ref.json"
+  },
+  {
+    "id": "optional-auth-empty-object",
+    "source": "self_constructed_synthetic",
+    "construction_method": "Allow anonymous access via an empty security requirement.",
+    "difficulty": "medium",
+    "human_scores": null,
+    "expected_findings": [
+      {
+        "category": "authorization",
+        "location": "#/paths/~1items/post",
+        "severity": "medium",
+        "title": "State-changing operation is unauthenticated"
+      }
+    ],
+    "spec_path": "datasets/boundary-v1.1/optional-auth-empty-object.json"
+  },
+  {
+    "id": "optional-auth-alternative",
+    "source": "self_constructed_synthetic",
+    "construction_method": "Allow anonymous access via an empty security requirement.",
+    "difficulty": "medium",
+    "human_scores": null,
+    "expected_findings": [
+      {
+        "category": "authorization",
+        "location": "#/paths/~1items/post",
+        "severity": "medium",
+        "title": "State-changing operation is unauthenticated"
+      }
+    ],
+    "spec_path": "datasets/boundary-v1.1/optional-auth-alternative.json"
+  },
+  {
+    "id": "required-undocumented",
+    "source": "self_constructed_synthetic",
+    "construction_method": "Require a property without constraining its value; additional properties allowed.",
+    "difficulty": "medium",
+    "human_scores": null,
+    "expected_findings": [
+      {
+        "category": "schema",
+        "location": "#/components/schemas/Item/required",
+        "severity": "low",
+        "title": "Required property has no documented constraints"
+      }
+    ],
+    "spec_path": "datasets/boundary-v1.1/required-undocumented.json"
+  },
+  {
+    "id": "required-forbidden",
+    "source": "self_constructed_synthetic",
+    "construction_method": "Forbid an otherwise required property using additionalProperties false.",
+    "difficulty": "medium",
+    "human_scores": null,
+    "expected_findings": [
+      {
+        "category": "schema",
+        "location": "#/components/schemas/Item/required",
+        "severity": "high",
+        "title": "Required property is forbidden by the closed schema"
+      }
+    ],
+    "spec_path": "datasets/boundary-v1.1/required-forbidden.json"
+  },
+  {
+    "id": "parameter-override",
+    "source": "self_constructed_synthetic",
+    "construction_method": "Override a shared query parameter at operation level with a complete schema.",
+    "difficulty": "medium",
+    "human_scores": null,
+    "expected_findings": [],
+    "spec_path": "datasets/boundary-v1.1/parameter-override.json"
+  },
+  {
+    "id": "response-anchor-collision",
+    "source": "self_constructed_synthetic",
+    "construction_method": "Declare only 302, producing two distinct findings at one response location.",
+    "difficulty": "medium",
+    "human_scores": null,
+    "expected_findings": [
+      {
+        "category": "response_contract",
+        "location": "#/paths/~1items/get/responses",
+        "severity": "high",
+        "title": "No explicit 2xx response is declared"
+      },
+      {
+        "category": "response_contract",
+        "location": "#/paths/~1items/get/responses",
+        "severity": "low",
+        "title": "No error response is documented"
+      }
+    ],
+    "spec_path": "datasets/boundary-v1.1/response-anchor-collision.json"
+  },
+  {
+    "id": "sensitive-examples",
+    "source": "self_constructed_synthetic",
+    "construction_method": "Synthetic values under password examples/default and named accessToken parameter.",
+    "difficulty": "medium",
+    "human_scores": null,
+    "expected_findings": [],
+    "spec_path": "datasets/boundary-v1.1/sensitive-examples.json",
+    "sensitive_markers": [
+      "synthetic-password-marker-987654",
+      "synthetic-default-marker-987654",
+      "synthetic-array-marker-987654",
+      "synthetic-header-marker-987654"
+    ]
+  }
+]

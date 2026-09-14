@@ -8,11 +8,11 @@ from typing import Protocol
 
 from pydantic import ValidationError
 
-from .errors import StructuredOutputError
+from .errors import SpecInputError, StructuredOutputError
 from .hy3_client import ModelReply
 from .models import Focus, Hy3ReviewPayload, ReviewFinding, ReviewReport
 from .prompts import REVIEW_SYSTEM
-from .redaction import redact_text
+from .redaction import DocumentRedactor, redact_text
 from .rules import audit_spec
 from .spec_loader import LoadedSpec, compact_for_model
 from .structured_output import parse_json_object
@@ -35,15 +35,30 @@ def _validation_issue_summary(exc: ValidationError) -> str:
 
 
 def _deduplicate(findings: list[ReviewFinding]) -> list[ReviewFinding]:
-    seen: set[tuple[str, str, str]] = set()
+    seen: set[tuple[str, str, str, str]] = set()
     result: list[ReviewFinding] = []
     for finding in findings:
-        key = (finding.category.casefold(), finding.location, finding.title.casefold())
+        key = (
+            finding.category.casefold(),
+            finding.location,
+            finding.title.casefold(),
+            finding.rationale.casefold(),
+        )
         if key in seen:
             continue
         title_tokens = set(_TITLE_WORD.findall(finding.title.casefold())) - _TITLE_STOP_WORDS
         cross_source_duplicate = False
         for existing in result:
+            if (
+                sum(
+                    item.source == "deterministic"
+                    and item.category == finding.category
+                    and item.location == finding.location
+                    for item in findings
+                )
+                > 1
+            ):
+                break
             if (
                 existing.source == finding.source
                 or existing.category.casefold() != finding.category.casefold()
@@ -72,13 +87,23 @@ async def review_spec(
     client: CompletionClient,
 ) -> ReviewReport:
     local_findings = audit_spec(spec)
+    if len(local_findings) > 100:
+        raise SpecInputError(
+            "More than 100 local findings; split the specification before calling Hy3"
+        )
+    redactor = DocumentRedactor(spec.document)
     deterministic_json = json.dumps(
-        [finding.model_dump(mode="json") for finding in local_findings],
+        [redactor.redact_model(finding).model_dump(mode="json") for finding in local_findings],
         ensure_ascii=False,
         separators=(",", ":"),
     )
+    if len(deterministic_json) > max_model_chars:
+        raise SpecInputError(
+            "Local findings exceed the model context limit; split the specification"
+        )
     user = f"""Review focus: {focus.value}
-Specification label: {redact_text(spec.label)}
+Maximum additional findings: {100 - len(local_findings)}. Never exceed this remaining capacity.
+Specification label: {redactor.redact(spec.label)}
 Specification SHA-256: {spec.sha256}
 
 <UNTRUSTED_DETERMINISTIC_FINDINGS>
@@ -103,6 +128,10 @@ Specification SHA-256: {spec.sha256}
     ):
         raise StructuredOutputError("Hy3 findings used an invalid source or identifier")
     combined = _deduplicate([*local_findings, *payload.findings])
+    if len(combined) > 100:
+        raise StructuredOutputError(
+            "Hy3 exceeded the remaining report capacity; no partial result accepted"
+        )
     return ReviewReport(
         specification_title=spec.title,
         openapi_version=spec.version,
@@ -110,6 +139,7 @@ Specification SHA-256: {spec.sha256}
         executive_summary=payload.executive_summary,
         findings=combined,
         limitations=payload.limitations,
+        review_coverage=payload.review_coverage,
         model="hy3",
         usage=reply.usage,
     )

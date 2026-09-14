@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import defaultdict
 from collections.abc import Sequence
 
 from pydantic import ValidationError
 
+from . import __version__
 from .anti_gaming import analyze_report, suggestion_is_concrete
 from .errors import StructuredOutputError
 from .evidence import check_evidence, resolve_json_pointer
@@ -21,7 +23,7 @@ from .models import (
     ReviewReport,
 )
 from .prompts import JUDGE_SYSTEM
-from .redaction import redact_structure
+from .redaction import DocumentRedactor
 from .reviewer import CompletionClient, _validation_issue_summary
 from .rubric import DIMENSION_ORDER, load_rubric
 from .rules import audit_spec
@@ -32,8 +34,12 @@ SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 
 
 def _report_hash(report: ReviewReport) -> str:
+    payload = report.model_dump(mode="json")
+    # Preserve hashes of v1.0 reports that predate the optional coverage field.
+    if not report.review_coverage:
+        payload.pop("review_coverage", None)
     canonical = json.dumps(
-        report.model_dump(mode="json"),
+        payload,
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
@@ -161,10 +167,30 @@ def _score_dimensions(
     return scores, reasons, severe_reasons
 
 
-def evaluate_report_locally(spec: LoadedSpec, report: ReviewReport) -> EvaluationResult:
+def _match_anchor(finding: ReviewFinding, candidates: list[ReviewFinding]) -> ReviewFinding | None:
+    identical = [
+        item
+        for item in candidates
+        if item.rationale == finding.rationale and item.title == finding.title
+    ]
+    if len(identical) == 1:
+        return identical[0]
+    exact = [item for item in candidates if item.title.casefold() == finding.title.casefold()]
+    if len(exact) == 1:
+        return exact[0]
+    # Do not assign an ambiguous same-location finding to an arbitrary rule.
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def evaluate_report_locally(
+    spec: LoadedSpec, report: ReviewReport, *, context_complete: bool = True
+) -> EvaluationResult:
     rubric = load_rubric()
+    redacted_document = DocumentRedactor(spec.document).document
     anchors = audit_spec(spec)
-    anchors_by_key = {(item.category.casefold(), item.location): item for item in anchors}
+    anchors_by_key: dict[tuple[str, str], list[ReviewFinding]] = defaultdict(list)
+    for anchor in anchors:
+        anchors_by_key[(anchor.category.casefold(), anchor.location)].append(anchor)
     matched_anchor_ids: set[str] = set()
     assessments: list[FindingAssessment] = []
     severe_reasons: list[str] = []
@@ -172,11 +198,20 @@ def evaluate_report_locally(spec: LoadedSpec, report: ReviewReport) -> Evaluatio
 
     for finding in unique_findings:
         location_exists, _ = resolve_json_pointer(spec.document, finding.location)
-        evidence_checks = [check_evidence(spec.document, item) for item in finding.evidence]
+        evidence_checks = [
+            check_evidence(spec.document, item, redacted_document=redacted_document)
+            for item in finding.evidence
+        ]
         supported = location_exists and any(
             item.exists and item.quote_matches for item in evidence_checks
         )
-        anchor = anchors_by_key.get((finding.category.casefold(), finding.location))
+        anchor = (
+            _match_anchor(
+                finding, anchors_by_key.get((finding.category.casefold(), finding.location), [])
+            )
+            if supported
+            else None
+        )
         severity_distance = None
         if anchor is not None:
             matched_anchor_ids.add(anchor.finding_id)
@@ -217,6 +252,48 @@ def evaluate_report_locally(spec: LoadedSpec, report: ReviewReport) -> Evaluatio
     )
     severe_reasons.extend(ratio_severe)
 
+    coverage_checks = [
+        check_evidence(spec.document, item, redacted_document=redacted_document)
+        for item in report.review_coverage
+    ]
+    required_coverage = {
+        f"#/{key}"
+        for key in ("info", "paths", "servers", "security", "components")
+        if key in spec.document
+    }
+    matched_coverage = {
+        item.pointer for item in coverage_checks if item.exists and item.quote_matches
+    }
+    coverage_complete = (
+        context_complete
+        and not spec.external_refs
+        and required_coverage <= matched_coverage
+        and all(item.exists and item.quote_matches for item in coverage_checks)
+    )
+    if not unique_findings:
+        supported_absence = not anchors and coverage_complete
+        rule_scores = {
+            "factual_accuracy": 3 if supported_absence else 0,
+            "location_accuracy": 4 if supported_absence else 0,
+            "severity_reasonableness": 4,
+            "evidence_traceability": 4 if supported_absence else 0,
+            "actionability": 4,
+            "hallucination_control": 4 if supported_absence else 0,
+        }
+        absence_reason = (
+            "No deterministic issues; coverage quotes match every required section. "
+            "Absence of semantic issues still requires a judge; no changes are needed if confirmed."
+            if supported_absence
+            else "The no-findings conclusion is unsupported: known issues, invalid coverage "
+            "or incomplete document context."
+        )
+        reasons = {name: absence_reason for name in DIMENSION_ORDER}
+        if anchors:
+            severe_reasons.append("The empty report omits known deterministic findings.")
+        if severe_flags:
+            rule_scores["actionability"] = 0
+            rule_scores["hallucination_control"] = 0
+
     dimensions: list[DimensionScore] = []
     for name in DIMENSION_ORDER:
         definition = rubric["dimensions"][name]
@@ -240,7 +317,10 @@ def evaluate_report_locally(spec: LoadedSpec, report: ReviewReport) -> Evaluatio
         verdict = "conditional_pass"
     else:
         verdict = "pass"
+    if not unique_findings and verdict == "pass":
+        verdict = "conditional_pass"
     return EvaluationResult(
+        implementation_version=__version__,
         mode="deterministic",
         report_sha256=_report_hash(report),
         dimension_scores=dimensions,
@@ -251,6 +331,8 @@ def evaluate_report_locally(spec: LoadedSpec, report: ReviewReport) -> Evaluatio
         anti_gaming_flags=flags,
         finding_assessments=assessments,
         preliminary=True,
+        coverage_checks=coverage_checks,
+        coverage_complete=coverage_complete,
     )
 
 
@@ -284,25 +366,33 @@ async def evaluate_report_hybrid(
     max_model_chars: int,
     client: CompletionClient,
 ) -> EvaluationResult:
-    local = evaluate_report_locally(spec, report)
+    projection = compact_for_model(spec, max_model_chars)
+    projection_complete = not json.loads(projection).get("truncated", False)
+    local = evaluate_report_locally(spec, report, context_complete=projection_complete)
     rubric = load_rubric()
+    redactor = DocumentRedactor(spec.document)
     report_json = json.dumps(
-        redact_structure(report.model_dump(mode="json")),
+        redactor.redact_model(report).model_dump(mode="json"),
         ensure_ascii=False,
         separators=(",", ":"),
     )
     if len(report_json) > max_model_chars:
         raise StructuredOutputError("The review report is too large for bounded evaluation")
     rubric_json = json.dumps(rubric["dimensions"], ensure_ascii=False, separators=(",", ":"))
-    features_json = json.dumps(_compact_features(local), ensure_ascii=False, separators=(",", ":"))
+    features_json = json.dumps(
+        _compact_features(redactor.redact_model(local)), ensure_ascii=False, separators=(",", ":")
+    )
+    absence_policy = json.dumps(rubric.get("no_findings_policy", {}), ensure_ascii=False)
     user = f"""Apply the rubric literally.
 
 <TRUSTED_RUBRIC>
 {rubric_json}
+No-findings policy: {absence_policy}
 </TRUSTED_RUBRIC>
 
 <TRUSTED_LOCAL_FEATURES>
 {features_json}
+Coverage complete: {local.coverage_complete}. Projection complete: {projection_complete}.
 </TRUSTED_LOCAL_FEATURES>
 
 <UNTRUSTED_REVIEW_REPORT>
@@ -310,7 +400,7 @@ async def evaluate_report_hybrid(
 </UNTRUSTED_REVIEW_REPORT>
 
 <UNTRUSTED_OPENAPI_DATA>
-{compact_for_model(spec, max_model_chars)}
+{projection}
 </UNTRUSTED_OPENAPI_DATA>
 """
     reply = await client.complete(system=JUDGE_SYSTEM, user=user, purpose="review-quality-judge")

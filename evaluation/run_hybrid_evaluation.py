@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from hy3_api_review_evaluator import __version__
 from hy3_api_review_evaluator.annotation import (
     load_annotation_protocol,
     validate_complete_annotations,
@@ -31,8 +32,8 @@ from hy3_api_review_evaluator.spec_loader import load_spec_bytes
 ROOT = Path(__file__).parents[1]
 MANIFEST = ROOT / "datasets" / "manifest.jsonl"
 PROTOCOL = ROOT / "datasets" / "annotation_protocol.json"
-OUTPUT = ROOT / "results" / "hybrid-records.jsonl"
-SUMMARY = ROOT / "results" / "hybrid-summary.json"
+OUTPUT = ROOT / "results" / __version__ / "hybrid-records.jsonl"
+SUMMARY = ROOT / "results" / __version__ / "hybrid-summary.json"
 LEDGER = ROOT / "results" / "private" / "token-ledger.json"
 TIER_ORDINAL = {"bad": 1.0, "medium": 2.0, "good": 3.0}
 PILOT_RECORD_IDS = (
@@ -60,6 +61,10 @@ def _existing() -> dict[str, dict[str, Any]]:
         json.loads(line) for line in OUTPUT.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
     indexed = {row["record_id"]: row for row in rows}
+    if any(row["evaluation"].get("implementation_version") != __version__ for row in rows):
+        raise ValueError("Refusing to resume results from another implementation version")
+    if any(row["evaluation"].get("evaluation_version") != "1.1" for row in rows):
+        raise ValueError("Refusing to resume hybrid results from another evaluation version")
     if len(indexed) != len(rows):
         raise ValueError("Stored hybrid results contain duplicate record IDs")
     return indexed
@@ -163,7 +168,11 @@ def _summarize(
             )
 
     return {
-        "status": ("complete" if all_complete and annotations is not None else "preliminary"),
+        "status": "preliminary",
+        "evaluation_version": "1.1",
+        "implementation_version": __version__,
+        "automated_run_complete": all_complete,
+        "human_annotation_version": "1.0",
         "mode": "hybrid",
         "generated_at": datetime.now(UTC).isoformat(),
         "expected_record_count": len(manifest),
@@ -171,8 +180,13 @@ def _summarize(
         "strict_good_medium_bad_ranking_accuracy": ranking_accuracy,
         "ranking_failure_scenarios": ranking_failures,
         "tier_score_spearman": tier_spearman,
-        "human_score_spearman": human_spearman,
-        "human_score_mae": human_mae,
+        "human_score_spearman": None,
+        "human_score_mae": None,
+        "comparison_to_v1_0_human_labels": {
+            "spearman": human_spearman,
+            "mae": human_mae,
+            "sample_count": len(annotations) if annotations else 0,
+        },
         "repeat_judge_score_std": None,
         "adversarial_detection_rate": (
             len(detected) / len(adversarial_rows) if adversarial_rows else None
@@ -200,19 +214,14 @@ def _summarize(
         "human_annotation_protocol": "datasets/annotation_protocol.json",
         "notes": [
             "Construction-tier metrics are not substitutes for human agreement.",
-            "Human agreement uses the frozen stratified subset, not all 60 records.",
-            (
-                "All automated records and frozen-protocol labels are present; the aggregate "
-                "status is complete."
-                if all_complete and annotations is not None
-                else "The status remains preliminary until all automated records and protocol "
-                "labels exist."
-            ),
+            "Comparison uses frozen v1.0 labels, not new v1.1 human validation.",
+            "The analysis remains preliminary without version-matched human validation.",
         ],
     }
 
 
 async def _run(args: argparse.Namespace) -> dict[str, Any]:
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     settings = Settings.from_env(env_file=ROOT / ".env")
     settings.require_api_key()
     if not 1_000 <= args.run_token_budget <= settings.total_token_budget:

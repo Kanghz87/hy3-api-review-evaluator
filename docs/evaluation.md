@@ -14,22 +14,18 @@
 .venv\Scripts\python.exe scripts\validate_dataset.py
 .venv\Scripts\python.exe scripts\validate_results.py
 .venv\Scripts\python.exe evaluation\run_evaluation.py
+.venv\Scripts\python.exe evaluation\run_boundary_checks.py
 .venv\Scripts\python.exe evaluation\run_human_agreement.py --check
 ```
 
 数据集校验检查场景、档次、预期证据和人工子集；结果校验检查模型输出、覆盖范围、排序和
-用量汇总。确定性评测会重写基线 CSV / JSON；人工一致性 `--check` 只重算并比较保存结果，
+用量汇总。当前实现 0.2.1 的确定性评测写入 `results/0.2.1/`，不重写历史基线；人工一致性 `--check` 重算 v1.0
+人工对照并比较保存结果，
 不会修改文件。对仓库保存的输入，应复现 20/20 严格排序和 N=33 的人工一致性结果。
 
-需要重新生成当前人工结果表或刷新混合汇总时，运行：
-
-```powershell
-.venv\Scripts\python.exe evaluation\run_human_agreement.py
-.venv\Scripts\python.exe evaluation\run_hybrid_evaluation.py --summary-only
-```
-
-这两条命令也不调用模型，但会重写对应派生结果。`--summary-only` 保留原混合实验的账本快照，
-并不把其历史累计值当作所有后续实验的总用量。总体实际用量参见[分析报告](../reports/analysis.md)。
+`run_human_agreement.py` 专用于冻结的 v1.0 结果，不会将新版分数拼入旧实验。
+`run_hybrid_evaluation.py --summary-only` 现在仅刷新 `results/0.2.1/` 中已采集的当前实现记录；
+没有新版记录时应先停止，不要复制 v1.0 的模型结果到新版目录充数。
 
 ## 2. 结果文件
 
@@ -44,22 +40,34 @@
 | `datasets/annotations/human_scores.csv` | 33 条匿名化人工评分 |
 | `results/human-agreement-records.csv` | 人工、基线与混合分数的逐条对照 |
 | `results/human-agreement-summary.json` | 相关性、误差、分组结果和来源文件指纹 |
+| `results/v1.1/local-records.csv`、`local-summary.json` | 0.2.0 实现对原始 60 条报告的本地分数及变更列表 |
+| `results/v1.1/boundary-checks.json` | 12 个补充边界检查，没有新人工评分 |
+| `results/v1.1/*-smoke.json` | 选定补充样本的真实 Hy3 端到端结果 |
+| `results/0.2.1/local-records.csv`、`local-summary.json` | 0.2.1 实现的实际离线回归结果 |
+| `results/0.2.1/boundary-checks.json` | 0.2.1 下的 12 个补充边界检查 |
 
-历史基线、稳定性快照及逐条模型结果可能保留生成时的 `preliminary` 状态。当前人工结果以
+直接位于 `results/` 根目录的上述结果均是历史 v1.0 实验。历史快照可能保留生成时的 `preliminary` 状态。历史人工结果以
 `human-agreement-summary.json` 的明确范围为准；不能把 33 条子集描述为 60 条全量人工标注。
 
 ## 3. 真实 Hy3 调用
 
-先按[配置说明](configuration.md)提供 API Key。下列在线命令具有断点或缓存行为：本仓库已
-包含完成结果，直接执行不代表会重新调用模型，也不能把读取旧结果描述为一次新实验。
+先按[配置说明](configuration.md)提供 API Key。下列在线命令均使用 **results/0.2.1/ 独立输出路径**，
+若该目录没有对应结果就会真实调用模型。旧版 60 条完成记录不会使新版脚本免于收费。
+脚本具有断点或缓存行为；若复用了缓存，不能将其描述为一次新实验。
+
+输出包含 `implementation_version`，不能将 0.2.0 的旧模型结果作为 0.2.1 的缓存继续使用。
+目前 0.2.1 没有已采集的真实模型结果，执行下列在线命令会收费。
 
 ### 端到端验证
 
 ```powershell
 .venv\Scripts\python.exe scripts\run_hy3_smoke.py --run-token-budget 80000
+.venv\Scripts\python.exe scripts\run_hy3_smoke.py --boundary clean-contract --run-token-budget 60000
+.venv\Scripts\python.exe scripts\run_hy3_smoke.py --boundary parameter-ref --run-token-budget 60000
 ```
 
-默认复用已保存的验证结果。确需重新验证时，在归档旧结果并确认实际调用费用后，可添加
+第一条验证原始注入样本，后两条验证无问题报告及参数引用，分别缓存，不必为复现而全部运行。
+默认复用对应已保存的验证结果。确需重新验证时，在归档旧结果并确认实际调用费用后，可添加
 `--force`；一次成功流程包含 Hy3 reviewer 和 judge 两次调用，会覆盖该脚本的结果文件。
 
 ### 混合评测
@@ -86,13 +94,14 @@
 
 当前脚本使用固定输出路径，没有独立的 `--output-dir` 参数。需要从头采集新结果时：
 
-1. 使用独立实验副本，先归档 `results/hybrid-records.jsonl`、`results/hybrid-summary.json`、
-   `results/stability-records.jsonl` 和 `results/stability-summary.json`，使新实验输出不混入旧结果。
+1. 当前实现结果已与历史版本隔离；如需再次采集 0.2.1，使用独立实验副本，归档该副本的
+   `results/0.2.1/hybrid-*.json*` 和 `results/0.2.1/stability-*.json*`。保留所有历史结果。
 2. 保留输入文档、报告、Rubric、人工协议和标注不变，记录实验版本与配置；若改动这些条件，
    应作为新的评测设定报告，不能继续沿用旧实验结论。
 3. 保留已有的私有 token 账本。独立副本不共享账本，需要额外核算跨副本累计用量。
 4. 依次执行 pilot、后续混合评测和稳定性评测；调用中断后保留新结果并断点续跑。
-5. 对新采集结果重新生成基线、人工对照和汇总，更新分析范围；不要混用旧的来源指纹与新评分。
+5. 对新采集结果重新生成新版基线和汇总；旧人工评分只作跨版本描述性对照，不能解释为
+   新版人工验证。新的人工作业必须另存版本、协议和记录；不要混用旧来源指纹与新评分。
 
 归档和重新采样会改变工作副本内容，应保留原始实验文件的可恢复副本。示例运行额度只是
 请求前的上限，可能因模型输出长度和上下文不同而不足；预算不足时脚本应停止，而不是清空
@@ -112,3 +121,7 @@
 人工子集在已有标注后冻结并保留所有既有记录，不是事前独立预注册的随机留出测试集。单人
 标注、共享场景和较小分组样本限制了结论的外推范围。已有报告中的不利结果、分歧和失败
 案例应一并保留，不应通过挑选样本或改写参考分数提高指标。
+
+v1.1 尚未重新收集人工标注或重跑全量混合/稳定性实验。新版本地分数与旧标注的相关性和 MAE
+在 `comparison_to_v1_0_human_labels` 中单列，不填入新版 `human_score_*` 字段，分析仍为
+preliminary。无需删除或重做原先 33 条真实评分。

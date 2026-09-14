@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -43,7 +43,8 @@ class EvidenceReference(StrictModel):
     """A claim must point at one exact location in the uploaded document."""
 
     pointer: str = Field(
-        description="RFC 6901 JSON Pointer prefixed with #, for example #/paths/~1pets/get"
+        max_length=500,
+        description="RFC 6901 JSON Pointer prefixed with #, for example #/paths/~1pets/get",
     )
     quote: str = Field(default="", max_length=1_000)
     description: str = Field(default="", max_length=1_000)
@@ -77,6 +78,7 @@ class ReviewReport(StrictModel):
     executive_summary: str = Field(min_length=5, max_length=4_000)
     findings: list[ReviewFinding] = Field(default_factory=list, max_length=100)
     limitations: list[str] = Field(default_factory=list, max_length=20)
+    review_coverage: list[EvidenceReference] = Field(default_factory=list, max_length=10)
     model: str = "hy3"
     usage: Usage = Field(default_factory=Usage)
 
@@ -87,6 +89,7 @@ class Hy3ReviewPayload(StrictModel):
     executive_summary: str = Field(min_length=5, max_length=4_000)
     findings: list[ReviewFinding] = Field(default_factory=list, max_length=80)
     limitations: list[str] = Field(default_factory=list, max_length=20)
+    review_coverage: list[EvidenceReference] = Field(default_factory=list, max_length=10)
 
     @field_validator("limitations", mode="before")
     @classmethod
@@ -132,7 +135,8 @@ class DimensionScore(StrictModel):
 
 
 class EvaluationResult(StrictModel):
-    evaluation_version: Literal["1.0"] = "1.0"
+    evaluation_version: Literal["1.0", "1.1"] = "1.1"
+    implementation_version: str | None = None
     mode: Literal["deterministic", "hybrid"]
     report_sha256: str = Field(min_length=64, max_length=64)
     dimension_scores: list[DimensionScore] = Field(min_length=6, max_length=6)
@@ -144,6 +148,8 @@ class EvaluationResult(StrictModel):
     finding_assessments: list[FindingAssessment]
     judge_usage: Usage = Field(default_factory=Usage)
     preliminary: bool = True
+    coverage_checks: list[EvidenceCheck] = Field(default_factory=list)
+    coverage_complete: bool = False
 
 
 class JudgeDimensionScore(StrictModel):
@@ -156,3 +162,11 @@ class Hy3JudgePayload(StrictModel):
     dimension_scores: list[JudgeDimensionScore] = Field(min_length=6, max_length=6)
     severe_failure: bool
     severe_failure_reasons: list[str] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def consistent_severe_failure(self) -> Hy3JudgePayload:
+        if any(not reason.strip() for reason in self.severe_failure_reasons):
+            raise ValueError("Severe failure reasons must not be blank")
+        if self.severe_failure != bool(self.severe_failure_reasons):
+            raise ValueError("Severe failure flag and reasons must be consistent")
+        return self

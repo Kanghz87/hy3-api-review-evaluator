@@ -14,7 +14,9 @@
 - [人工标注指南](annotation_guide.md)：盲标界面、参考判断方法及规范化导出。
 - [数据卡](../datasets/DATASET_CARD.md)：合成场景、受控报告与人工子集的来源和限制。
 - [实验分析](../reports/analysis.md)：实测指标、人工分歧、失败模式和能力边界。
-- [Demo 前审计](../reports/pre_demo_audit.md)：最新工程复验与正式样本真实 Hy3 预检。
+- [修订验证报告](../reports/revision_v1_1.md)：v1.1 修复、边界回归及跨版本可比性。
+- [0.2.1 加固记录](../reports/hardening_0_2_1.md)：最新输入、脱敏、去重及容量边界验证。
+- [Demo 前审计](../reports/pre_demo_audit.md)：v1.0 历史工程复验与正式样本 Hy3 预检。
 
 ## 工程与安全
 

@@ -1,0 +1,183 @@
+{
+  "export_version": "1.0",
+  "generated_at": "2026-09-11T08:54:23.400891+00:00",
+  "specification": {
+    "label": "clean-contract.json",
+    "title": "clean-contract",
+    "openapi_version": "3.1.0",
+    "sha256": "b3bc8d8ca0f737a908a985941fb772f01c9b4995d961fe84426908f32f89518e",
+    "operation_count": 1,
+    "external_refs_not_fetched": []
+  },
+  "review": {
+    "report_version": "1.0",
+    "specification_title": "clean-contract",
+    "openapi_version": "3.1.0",
+    "focus": "all",
+    "executive_summary": "This governance review assessed the supplied OpenAPI 3.1.0 document 'clean-contract' (SHA-256 b3bc8d8ca0f737a908a985941fb772f01c9b4995d961fe84426908f32f89518e) for contract quality, security, and structural governance. The deterministic findings list was empty, and manual inspection of the visible content of #/info, #/paths, #/servers, #/security, and #/components revealed no deviations from baseline OpenAPI governance expectations (e.g., required fields present, valid server URL, security scheme defined, operation responses documented). The document declares no external references pending fetch (external_refs_not_fetched is empty), and the projection shows no truncation. Consequently, no findings are raised. The no-findings conclusion is limited to the supplied projection and does not guarantee absence of issues in unsupplied contexts.",
+    "findings": [],
+    "limitations": [],
+    "review_coverage": [
+      {
+        "pointer": "#/info",
+        "quote": "{\"description\":\"Self-constructed boundary test; no production data.\",\"title\":\"clean-contract\",\"version\":\"1.0.0\"}",
+        "description": "Reviewed info object: title, version, and description present; no governance concerns (e.g., missing version or non-descriptive title) observed."
+      },
+      {
+        "pointer": "#/paths",
+        "quote": "{\"/items\":{\"get\":{\"operationId\":\"listItems\",\"responses\":{\"200\":{\"description\":\"Success\"},\"400\":{\"description\":\"Invalid input\"}},\"summary\":\"Read items\"}}}",
+        "description": "Reviewed paths: single GET operation on /items with operationId, summary, and two response definitions; no missing required fields or orphan references detected."
+      },
+      {
+        "pointer": "#/servers",
+        "quote": "[{\"url\":\"https://boundary.example.test\"}]",
+        "description": "Reviewed servers: one HTTPS server URL with valid format; no insecure transport or missing server object."
+      },
+      {
+        "pointer": "#/security",
+        "quote": "[{\"bearerAuth\":[]}]",
+        "description": "Reviewed security: global security requirement uses defined bearerAuth scheme; scheme present in components.securitySchemes."
+      },
+      {
+        "pointer": "#/components",
+        "quote": "{\"schemas\":{\"Item\":{\"properties\":{\"id\":{\"type\":\"string\"}},\"required\":[\"id\"],\"type\":\"object\"}},\"securitySchemes\":{\"bearerAuth\":{\"scheme\":\"bearer\",\"type\":\"http\"}}}",
+        "description": "Reviewed components: Item schema has required id property; bearerAuth security scheme correctly typed as http bearer. No unresolved references or missing components."
+      }
+    ],
+    "model": "hy3",
+    "usage": {
+      "prompt_tokens": 742,
+      "completion_tokens": 3678,
+      "total_tokens": 4420
+    }
+  },
+  "evaluation": {
+    "evaluation_version": "1.1",
+    "mode": "hybrid",
+    "report_sha256": "50abc1240fcdfdeb90d76d23d819ad555df6470199937b04fe57ddf55802045a",
+    "dimension_scores": [
+      {
+        "name": "factual_accuracy",
+        "label_zh": "事实准确性",
+        "weight": 25,
+        "rule_score": 3,
+        "judge_score": 3,
+        "final_score": 3,
+        "reason": "Local: No deterministic issues; coverage quotes match every required section. Absence of semantic issues still requires a judge; no changes are needed if confirmed. Judge: No-findings report meets prerequisites (non-empty matching quotes for info, paths, servers, security, components, no omitted local findings). Trusted no-findings policy caps factual accuracy at 3 because references exist but absence of semantic issues is not fully verified. Applied ceiling: 4."
+      },
+      {
+        "name": "location_accuracy",
+        "label_zh": "定位准确性",
+        "weight": 20,
+        "rule_score": 4,
+        "judge_score": 4,
+        "final_score": 4,
+        "reason": "Local: No deterministic issues; coverage quotes match every required section. Absence of semantic issues still requires a judge; no changes are needed if confirmed. Judge: All reviewed pointers (#/info, #/paths, #/servers, #/security, #/components) exist and correctly identify the nodes; no findings to mislocate. Applied ceiling: 4."
+      },
+      {
+        "name": "severity_reasonableness",
+        "label_zh": "严重程度合理性",
+        "weight": 10,
+        "rule_score": 4,
+        "judge_score": 4,
+        "final_score": 4,
+        "reason": "Local: No deterministic issues; coverage quotes match every required section. Absence of semantic issues still requires a judge; no changes are needed if confirmed. Judge: No findings raised; no severity grades assigned or distorted. Local policy assigns 4 to non-factual dimensions when prerequisites met. Applied ceiling: 4."
+      },
+      {
+        "name": "evidence_traceability",
+        "label_zh": "证据可追溯性",
+        "weight": 20,
+        "rule_score": 4,
+        "judge_score": 4,
+        "final_score": 4,
+        "reason": "Local: No deterministic issues; coverage quotes match every required section. Absence of semantic issues still requires a judge; no changes are needed if confirmed. Judge: Each coverage entry provides an existing JSON Pointer and a non-empty quote that appears verbatim in the supplied OpenAPI projection. Applied ceiling: 4."
+      },
+      {
+        "name": "actionability",
+        "label_zh": "建议可执行性",
+        "weight": 15,
+        "rule_score": 4,
+        "judge_score": 4,
+        "final_score": 4,
+        "reason": "Local: No deterministic issues; coverage quotes match every required section. Absence of semantic issues still requires a judge; no changes are needed if confirmed. Judge: No findings imply no required contract modifications; report includes no erroneous or dangerous suggestions. Policy yields 4. Applied ceiling: 4."
+      },
+      {
+        "name": "hallucination_control",
+        "label_zh": "幻觉控制",
+        "weight": 10,
+        "rule_score": 4,
+        "judge_score": 4,
+        "final_score": 4,
+        "reason": "Local: No deterministic issues; coverage quotes match every required section. Absence of semantic issues still requires a judge; no changes are needed if confirmed. Judge: No fabricated interfaces, methods, fields, responses, schemas, or references. Quotes match nodes. Incidental hash is not a substantive conclusion; policy assigns 4 under met prerequisites. Applied ceiling: 4."
+      }
+    ],
+    "total_score": 93.75,
+    "verdict": "pass",
+    "severe_failure": false,
+    "severe_failure_reasons": [],
+    "anti_gaming_flags": [],
+    "finding_assessments": [],
+    "judge_usage": {
+      "prompt_tokens": 2441,
+      "completion_tokens": 3033,
+      "total_tokens": 5474
+    },
+    "preliminary": true,
+    "coverage_checks": [
+      {
+        "pointer": "#/info",
+        "exists": true,
+        "quote_matches": true,
+        "resolved_preview": "{\"description\":\"Self-constructed boundary test; no production data.\",\"title\":\"clean-contract\",\"version\":\"1.0.0\"}",
+        "reason": "The pointer exists and the quote occurs in the resolved value."
+      },
+      {
+        "pointer": "#/paths",
+        "exists": true,
+        "quote_matches": true,
+        "resolved_preview": "{\"/items\":{\"get\":{\"operationId\":\"listItems\",\"responses\":{\"200\":{\"description\":\"Success\"},\"400\":{\"description\":\"Invalid input\"}},\"summary\":\"Read items\"}}}",
+        "reason": "The pointer exists and the quote occurs in the resolved value."
+      },
+      {
+        "pointer": "#/servers",
+        "exists": true,
+        "quote_matches": true,
+        "resolved_preview": "[{\"url\":\"https://boundary.example.test\"}]",
+        "reason": "The pointer exists and the quote occurs in the resolved value."
+      },
+      {
+        "pointer": "#/security",
+        "exists": true,
+        "quote_matches": true,
+        "resolved_preview": "[{\"bearerAuth\":[]}]",
+        "reason": "The pointer exists and the quote occurs in the resolved value."
+      },
+      {
+        "pointer": "#/components",
+        "exists": true,
+        "quote_matches": true,
+        "resolved_preview": "{\"schemas\":{\"Item\":{\"properties\":{\"id\":{\"type\":\"string\"}},\"required\":[\"id\"],\"type\":\"object\"}},\"securitySchemes\":{\"bearerAuth\":{\"scheme\":\"bearer\",\"type\":\"http\"}}}",
+        "reason": "The pointer exists and the quote occurs in the resolved value."
+      }
+    ],
+    "coverage_complete": true
+  },
+  "experiment": {
+    "status": "complete",
+    "kind": "real_hy3_review_and_judge_smoke",
+    "profile": "clean-contract",
+    "evaluation_version": "1.1",
+    "completed_at": "2026-09-11T08:54:23.400891+00:00",
+    "elapsed_seconds": 64.66,
+    "token_budget": {
+      "total_limit": 850000,
+      "total_used": 259428,
+      "total_remaining": 590572,
+      "reserved_tokens": 0,
+      "run_limit": 60000,
+      "run_used": 9894,
+      "run_remaining": 50106,
+      "call_count": 89
+    }
+  }
+}

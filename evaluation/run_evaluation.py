@@ -8,16 +8,22 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from hy3_api_review_evaluator import __version__
+from hy3_api_review_evaluator.annotation import validate_complete_annotations
 from hy3_api_review_evaluator.config import Settings
 from hy3_api_review_evaluator.evaluator import evaluate_report_locally
-from hy3_api_review_evaluator.metrics import spearman_correlation, strict_ranking_accuracy
+from hy3_api_review_evaluator.metrics import (
+    mean_absolute_error,
+    spearman_correlation,
+    strict_ranking_accuracy,
+)
 from hy3_api_review_evaluator.models import ReviewReport
 from hy3_api_review_evaluator.spec_loader import load_spec_bytes
 
 ROOT = Path(__file__).parents[1]
 MANIFEST = ROOT / "datasets" / "manifest.jsonl"
-RECORDS_OUTPUT = ROOT / "results" / "preliminary-local-records.csv"
-SUMMARY_OUTPUT = ROOT / "results" / "preliminary-local-summary.json"
+RECORDS_OUTPUT = ROOT / "results" / __version__ / "local-records.csv"
+SUMMARY_OUTPUT = ROOT / "results" / __version__ / "local-summary.json"
 TIER_ORDINAL = {"bad": 1.0, "medium": 2.0, "good": 3.0}
 
 
@@ -76,6 +82,7 @@ def run() -> dict[str, Any]:
         rankings[record["scenario_id"]][record["reference_tier"]] = result.total_score
 
     fieldnames = list(rows[0])
+    RECORDS_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     with RECORDS_OUTPUT.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fieldnames)
         writer.writeheader()
@@ -108,6 +115,8 @@ def run() -> dict[str, Any]:
     }
     summary = {
         "status": "preliminary",
+        "evaluation_version": "1.1",
+        "implementation_version": __version__,
         "mode": "deterministic",
         "record_count": len(rows),
         "scenario_count": len(rankings),
@@ -124,9 +133,42 @@ def run() -> dict[str, Any]:
         "by_difficulty_mean_score": by_difficulty,
         "notes": [
             "Tier Spearman uses construction tiers, not human annotations.",
-            "Human agreement and repeat Hy3 judge stability are unavailable at this stage.",
+            "These are current local scores, not new Hy3 hybrid or stability measurements.",
+            "Existing human annotations use rubric v1.0; comparison is descriptive only.",
         ],
     }
+    annotation_path = ROOT / "datasets/annotations/human_scores.csv"
+    if annotation_path.exists():
+        protocol = json.loads(
+            (ROOT / "datasets/annotation_protocol.json").read_text(encoding="utf-8")
+        )
+        annotations = validate_complete_annotations(
+            annotation_path, set(protocol["selected_record_ids"])
+        )
+        automatic = {row["record_id"]: row["total_score"] for row in rows}
+        human = [float(row["manual_total"]) for row in annotations]
+        predicted = [automatic[row["record_id"]] for row in annotations]
+        summary["comparison_to_v1_0_human_labels"] = {
+            "sample_count": len(human),
+            "spearman": spearman_correlation(predicted, human),
+            "mae": mean_absolute_error(predicted, human),
+            "annotation_version": "1.0",
+        }
+    previous_path = ROOT / "results/preliminary-local-records.csv"
+    if previous_path.exists():
+        with previous_path.open(encoding="utf-8-sig", newline="") as stream:
+            previous = {
+                row["record_id"]: float(row["total_score"]) for row in csv.DictReader(stream)
+            }
+        summary["changed_records_vs_v1_0"] = [
+            {
+                "record_id": row["record_id"],
+                "old_score": previous[row["record_id"]],
+                "new_score": row["total_score"],
+            }
+            for row in rows
+            if row["total_score"] != previous[row["record_id"]]
+        ]
     SUMMARY_OUTPUT.write_text(
         json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )

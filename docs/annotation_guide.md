@@ -90,7 +90,6 @@ pointer 和 quote，只建议“加强安全”。事实、定位、严重度、
 ```powershell
 .venv\Scripts\python.exe scripts\merge_annotations.py
 .venv\Scripts\python.exe evaluation\run_human_agreement.py
-.venv\Scripts\python.exe evaluation\run_hybrid_evaluation.py --summary-only
 .venv\Scripts\python.exe evaluation\run_human_agreement.py --check
 ```
 
@@ -104,5 +103,6 @@ pointer 和 quote，只建议“加强安全”。事实、定位、严重度、
 报告必须注明 `N=33`、单人标注及分层子集范围，不能写成 60 条全量人工标注。原始逐条模型
 输出及历史基线、稳定性快照中的 preliminary 字段保留生成时状态，不改写历史实验数据。
 
-当前维护者的 33 条标注已于 2026-08-27 完成，人工一致性结果已真实计算。此前缺少人工标注
-时使用的 preliminary 不再用于当前汇总；这不代表多人一致性验证或公开发布已经完成。
+当前维护者的 33 条标注已于 2026-08-27 完成，对应 v1.0；该历史实验的人工一致性已真实计算。
+v1.1 修订不更改这些分数，不要求重新标注。若开展新版人工验证，应另建版本化协议和记录，
+不要覆盖本文件描述的旧标注。新版结果目前仍为 preliminary。

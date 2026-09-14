@@ -16,7 +16,7 @@ from hy3_api_review_evaluator.evaluator import evaluate_report_hybrid
 from hy3_api_review_evaluator.export import build_csv_export, build_json_export
 from hy3_api_review_evaluator.hy3_client import Hy3Client
 from hy3_api_review_evaluator.models import EvaluationResult, Focus, ReviewReport
-from hy3_api_review_evaluator.redaction import redact_text
+from hy3_api_review_evaluator.redaction import DocumentRedactor, redact_text
 from hy3_api_review_evaluator.reviewer import review_spec
 from hy3_api_review_evaluator.rules import audit_spec
 from hy3_api_review_evaluator.spec_loader import LoadedSpec, load_spec_bytes
@@ -90,6 +90,12 @@ def _render_results(
     evaluation: EvaluationResult,
     ledger: TokenBudgetLedger,
 ) -> None:
+    # Sanitize all rendered narrative/evidence, not just the model's document projection.
+    result_json = build_json_export(spec, report, evaluation)
+    result_csv = build_csv_export(report, evaluation, spec=spec)
+    redactor = DocumentRedactor(spec.document)
+    report = redactor.redact_model(report)
+    evaluation = redactor.redact_model(evaluation)
     st.subheader("Hy3 结构化审查报告")
     source_counts = {
         source: sum(finding.source == source for finding in report.findings)
@@ -106,6 +112,17 @@ def _render_results(
                 st.write(f"- {limitation}")
 
     st.subheader("审查质量评估")
+    if not report.findings:
+        st.info("本报告未列出问题。评分会核验审查范围与遗漏；零发现不等于 API 已通过安全认证。")
+        if not evaluation.coverage_complete:
+            st.warning("审查范围证据不完整，不能据此确认文档没有问题。")
+        with st.expander("审查范围证据", expanded=True):
+            for evidence, check in zip(
+                report.review_coverage, evaluation.coverage_checks, strict=True
+            ):
+                st.code(evidence.pointer, language=None)
+                st.code(evidence.quote, language=None)
+                st.caption("匹配" if check.exists and check.quote_matches else "不匹配")
     score_col, verdict_col, model_col, usage_col = st.columns(4)
     score_col.metric("总分", f"{evaluation.total_score:.2f} / 100")
     verdict_col.metric(
@@ -163,8 +180,6 @@ def _render_results(
                     status = "✅ 匹配" if check.exists and check.quote_matches else "❌ 不匹配"
                     st.caption(f"{status} — {check.reason}")
 
-    result_json = build_json_export(spec, report, evaluation)
-    result_csv = build_csv_export(report, evaluation)
     json_col, csv_col = st.columns(2)
     json_col.download_button(
         "下载 JSON",
@@ -222,18 +237,22 @@ def main() -> None:
         st.error(str(exc))
         return
 
+    try:
+        local_frame = _local_table(spec)
+    except EvaluatorError as exc:
+        st.error(redact_text(str(exc), exact_secrets=[settings.api_key or ""]))
+        return
     metadata = st.columns(4)
     metadata[0].metric("标题", spec.title)
     metadata[1].metric("OpenAPI", spec.version)
     metadata[2].metric("操作数", spec.operation_count)
-    metadata[3].metric("本地发现", len(audit_spec(spec)))
+    metadata[3].metric("本地发现", len(local_frame))
     if spec.external_refs:
         st.warning(
             f"检测到 {len(spec.external_refs)} 个外部 $ref；为安全起见未下载，完整性会受限。"
         )
 
     st.subheader("确定性检查")
-    local_frame = _local_table(spec)
     if local_frame.empty:
         st.success("确定性规则未发现问题。")
     else:
@@ -246,12 +265,12 @@ def main() -> None:
         use_container_width=True,
     ):
         st.session_state.pop("latest_result", None)
-        ledger = TokenBudgetLedger(
-            Path("results/private/token-ledger.json"),
-            total_limit=settings.total_token_budget,
-            run_limit=settings.default_run_token_budget,
-        )
         try:
+            ledger = TokenBudgetLedger(
+                Path("results/private/token-ledger.json"),
+                total_limit=settings.total_token_budget,
+                run_limit=settings.default_run_token_budget,
+            )
             with st.status("正在准备 Hy3 审查……", expanded=True) as status:
                 stage_labels = {
                     "review": "第 1/2 步：Hy3 正在生成结构化审查报告……",
@@ -281,7 +300,10 @@ def main() -> None:
 
     latest = st.session_state.get("latest_result")
     if latest and latest[0] == _result_key(spec.sha256, focus):
-        _render_results(spec, latest[1], latest[2], latest[3])
+        try:
+            _render_results(spec, latest[1], latest[2], latest[3])
+        except Exception as exc:
+            st.error(f"结果展示已安全停止：{type(exc).__name__}")
 
 
 if __name__ == "__main__":

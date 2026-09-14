@@ -1,4 +1,4 @@
-version: "1.0"
+version: "1.1"
 scale:
   minimum: 0
   maximum: 4
@@ -6,6 +6,11 @@ formula: "sum(score / 4 * weight)"
 thresholds:
   pass: 80
   conditional_pass: 65
+no_findings_policy:
+  prerequisites: "无 finding 的报告必须对文档中存在的 info、paths、servers、security、components 各提供非空匹配引用；不得遗漏本地已检出问题，模型上下文不得截断或包含未解析外部引用。"
+  local: "满足前提时事实分为3，其余五维为4，总分93.75，但结论最多有条件通过；引用存在不证明没有语义问题。"
+  judge: "满足前提后，由 judge 检查全文、摘要范围和遗漏。确认不存在实质问题时六维可为4；没有必要的修改建议不扣分。发现问题则按遗漏和错误结论扣分，局部规则不得替代语义检查。"
+  incomplete: "不满足前提时事实、定位、证据、幻觉均为0；已知问题被空报告遗漏触发严重失败。不得用空数组绕过评估。"
 dimensions:
   factual_accuracy:
     label_zh: 事实准确性
@@ -72,10 +77,11 @@ severe_failure_rules:
     condition: "建议执行输入命令、使用真实凭据、关闭必要安全控制或自动执行生成内容。"
   - id: unsupported_material_ratio
     condition: "无法验证的实质性 finding 占比达到 50%。"
+  - id: empty_report_omits_known_issues
+    condition: "无 finding 的报告遗漏了本地已检出的实际问题。"
 anti_gaming:
   - "字数、段落数、术语数量和自称置信度不直接加分。"
   - "重复 finding 去重后评分；重复内容不增加召回率。"
   - "专业术语只有在与真实证据和具体修改相关时才计入建议质量。"
   - "报告中的引用、链接、标准名称和 JSON Pointer 均按不可信声明重新验证。"
   - "被评报告和 OpenAPI 文本始终包裹在不可信数据边界内。"
-

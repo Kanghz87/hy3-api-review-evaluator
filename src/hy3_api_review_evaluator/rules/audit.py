@@ -5,14 +5,22 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections import defaultdict
 from collections.abc import Iterator
 from typing import Any
 from urllib.parse import urlsplit
 
-from ..evidence import operation_pointer
+from pydantic import ValidationError
+
+from ..errors import SpecInputError
 from ..models import EvidenceReference, ReviewFinding
 from ..redaction import redact_structure, redact_text
-from ..spec_loader import HTTP_METHODS, LoadedSpec, escape_pointer_token, resolve_local_object
+from ..spec_loader import (
+    HTTP_METHODS,
+    LoadedSpec,
+    escape_pointer_token,
+    resolve_local_object_with_pointer,
+)
 
 _PATH_PARAMETER = re.compile(r"\{([^{}]+)\}")
 
@@ -27,7 +35,8 @@ def iter_operations(
         if not isinstance(raw_path_item, dict):
             continue
         path_pointer = f"#/paths/{escape_pointer_token(str(path))}"
-        path_item = resolve_local_object(document, raw_path_item) or raw_path_item
+        resolved_path = resolve_local_object_with_pointer(document, raw_path_item, path_pointer)
+        path_item, source_pointer = resolved_path or (raw_path_item, path_pointer)
         shared = path_item.get("parameters", [])
         if not isinstance(shared, list):
             shared = []
@@ -37,29 +46,31 @@ def iter_operations(
             operation_parameters = operation.get("parameters", [])
             if not isinstance(operation_parameters, list):
                 operation_parameters = []
-            parameters: list[tuple[dict[str, Any], str]] = []
+            parameters_by_key: dict[tuple[str, str], tuple[dict[str, Any], str]] = {}
             for index, parameter in enumerate(shared):
                 if isinstance(parameter, dict):
-                    parameters.append(
-                        (
-                            resolve_local_object(document, parameter) or parameter,
-                            f"{path_pointer}/parameters/{index}",
-                        )
+                    param_pointer = f"{source_pointer}/parameters/{index}"
+                    resolved = resolve_local_object_with_pointer(document, parameter, param_pointer)
+                    definition, location = resolved or (parameter, param_pointer)
+                    parameters_by_key[(str(definition.get("in")), str(definition.get("name")))] = (
+                        definition,
+                        location,
                     )
             for index, parameter in enumerate(operation_parameters):
                 if isinstance(parameter, dict):
-                    parameters.append(
-                        (
-                            resolve_local_object(document, parameter) or parameter,
-                            f"{path_pointer}/{str(method).lower()}/parameters/{index}",
-                        )
+                    param_pointer = f"{source_pointer}/{method}/parameters/{index}"
+                    resolved = resolve_local_object_with_pointer(document, parameter, param_pointer)
+                    definition, location = resolved or (parameter, param_pointer)
+                    parameters_by_key[(str(definition.get("in")), str(definition.get("name")))] = (
+                        definition,
+                        location,
                     )
             yield (
                 str(path),
                 str(method).lower(),
                 operation,
-                parameters,
-                operation_pointer(str(path), str(method)),
+                list(parameters_by_key.values()),
+                f"{source_pointer}/{method}",
             )
 
 
@@ -113,7 +124,22 @@ def _security_names(requirements: Any) -> set[str]:
     }
 
 
+def _allows_anonymous(requirements: Any) -> bool:
+    return not requirements or (
+        isinstance(requirements, list) and any(item == {} for item in requirements)
+    )
+
+
 def audit_spec(spec: LoadedSpec) -> list[ReviewFinding]:
+    try:
+        return _audit_spec(spec)
+    except ValidationError as exc:
+        raise SpecInputError(
+            "A finding exceeds supported field limits; shorten identifiers or split the input"
+        ) from exc
+
+
+def _audit_spec(spec: LoadedSpec) -> list[ReviewFinding]:
     document = spec.document
     findings: list[ReviewFinding] = []
     info = document.get("info", {})
@@ -359,7 +385,7 @@ def audit_spec(spec: LoadedSpec) -> list[ReviewFinding]:
         if (
             method in {"post", "put", "patch", "delete"}
             and security_schemes
-            and not effective_security
+            and _allows_anonymous(effective_security)
         ):
             findings.append(
                 _finding(
@@ -368,7 +394,7 @@ def audit_spec(spec: LoadedSpec) -> list[ReviewFinding]:
                     pointer,
                     "State-changing operation is unauthenticated",
                     "The API defines security schemes, but this state-changing operation "
-                    "has no effective requirement.",
+                    "allows an anonymous alternative in its effective security requirement.",
                     "Declare the intended security requirement or explicitly document "
                     "why the operation is public.",
                     operation,
@@ -395,6 +421,13 @@ def audit_spec(spec: LoadedSpec) -> list[ReviewFinding]:
         for schema_name, schema in schemas.items():
             if not isinstance(schema, dict):
                 continue
+            # Composition and pattern-based definitions require full JSON Schema evaluation.
+            # Do not infer a missing definition from this object's properties alone.
+            if any(
+                key in schema
+                for key in ("$ref", "allOf", "anyOf", "oneOf", "if", "patternProperties")
+            ):
+                continue
             properties = schema.get("properties", {})
             required = schema.get("required", [])
             if isinstance(required, list) and isinstance(properties, dict):
@@ -402,17 +435,39 @@ def audit_spec(spec: LoadedSpec) -> list[ReviewFinding]:
                     pointer = (
                         f"#/components/schemas/{escape_pointer_token(str(schema_name))}/required"
                     )
+                    closed = schema.get("additionalProperties") is False
                     findings.append(
                         _finding(
-                            "high",
+                            "high" if closed else "low",
                             "schema",
                             pointer,
-                            "Required property is not defined",
+                            (
+                                "Required property is forbidden by the closed schema"
+                                if closed
+                                else "Required property has no documented constraints"
+                            ),
                             f"Schema '{schema_name}' requires '{missing}', but properties "
-                            "does not define it.",
-                            f"Define properties.{missing} or remove it from required.",
+                            "does not define it. "
+                            + (
+                                "additionalProperties: false forbids this required field."
+                                if closed
+                                else "This is valid JSON Schema; its value constraints "
+                                "are undocumented, not a proven invalid contract."
+                            ),
+                            f"Define properties.{missing} with its intended schema; only remove "
+                            "it from required if the field is intentionally optional.",
                             required,
                         )
                     )
 
-    return sorted(findings, key=lambda item: (item.location, item.category, item.finding_id))
+    groups: dict[str, dict[str, ReviewFinding]] = defaultdict(dict)
+    for finding in findings:
+        groups[finding.finding_id][finding.rationale] = finding
+    unique: list[ReviewFinding] = []
+    for finding_id, variants in groups.items():
+        for rationale, finding in variants.items():
+            if len(variants) > 1:
+                suffix = hashlib.sha256(rationale.encode()).hexdigest()[:8]
+                finding = finding.model_copy(update={"finding_id": f"{finding_id}-{suffix}"})
+            unique.append(finding)
+    return sorted(unique, key=lambda item: (item.location, item.category, item.finding_id))

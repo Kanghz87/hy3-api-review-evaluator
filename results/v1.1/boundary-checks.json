@@ -1,0 +1,257 @@
+{
+  "evaluation_version": "1.1",
+  "generated_at": "2026-09-12T01:59:10.853227+00:00",
+  "status": "passed",
+  "case_count": 12,
+  "passed_count": 12,
+  "zero_expected_finding_case_count": 4,
+  "new_hy3_calls": 0,
+  "human_scores": null,
+  "scope": "Software regression only; not held-out model performance or human agreement.",
+  "records": [
+    {
+      "case_id": "clean-contract",
+      "spec_sha256": "b3bc8d8ca0f737a908a985941fb772f01c9b4995d961fe84426908f32f89518e",
+      "difficulty": "medium",
+      "expected_findings": [],
+      "actual_findings": [],
+      "evidence_valid": true,
+      "sensitive_markers_removed": true,
+      "passed": true
+    },
+    {
+      "case_id": "clean-composed-schema",
+      "spec_sha256": "458ec152af213b9ee331979eebbb08f33dae4c7dace2850218ac962404a80ffd",
+      "difficulty": "hard",
+      "expected_findings": [],
+      "actual_findings": [],
+      "evidence_valid": true,
+      "sensitive_markers_removed": true,
+      "passed": true
+    },
+    {
+      "case_id": "parameter-ref",
+      "spec_sha256": "a3167749c576ee65fa74cf83009b7d7397b2745085baae816983f444375012f9",
+      "difficulty": "hard",
+      "expected_findings": [
+        {
+          "category": "path_parameter",
+          "location": "#/components/parameters/Id",
+          "severity": "medium",
+          "title": "Path parameter is not required"
+        }
+      ],
+      "actual_findings": [
+        {
+          "category": "path_parameter",
+          "location": "#/components/parameters/Id",
+          "severity": "medium",
+          "title": "Path parameter is not required"
+        }
+      ],
+      "evidence_valid": true,
+      "sensitive_markers_removed": true,
+      "passed": true
+    },
+    {
+      "case_id": "parameter-ref-chain",
+      "spec_sha256": "4f07850ef8c73efb9f13bbd2e30660c7fa0ed6793b63ced6f1b0f09dd7aeb49d",
+      "difficulty": "hard",
+      "expected_findings": [
+        {
+          "category": "path_parameter",
+          "location": "#/components/parameters/Id",
+          "severity": "medium",
+          "title": "Path parameter is not required"
+        }
+      ],
+      "actual_findings": [
+        {
+          "category": "path_parameter",
+          "location": "#/components/parameters/Id",
+          "severity": "medium",
+          "title": "Path parameter is not required"
+        }
+      ],
+      "evidence_valid": true,
+      "sensitive_markers_removed": true,
+      "passed": true
+    },
+    {
+      "case_id": "pathitem-ref",
+      "spec_sha256": "a2e3d3a6b086c63b86f42885eaea4d34d2c9342f0bdbbe4f9327262a052c86c5",
+      "difficulty": "hard",
+      "expected_findings": [
+        {
+          "category": "operation_id",
+          "location": "#/components/pathItems/Shared/get",
+          "severity": "medium",
+          "title": "operationId is missing"
+        }
+      ],
+      "actual_findings": [
+        {
+          "category": "operation_id",
+          "location": "#/components/pathItems/Shared/get",
+          "severity": "medium",
+          "title": "operationId is missing"
+        }
+      ],
+      "evidence_valid": true,
+      "sensitive_markers_removed": true,
+      "passed": true
+    },
+    {
+      "case_id": "optional-auth-empty-object",
+      "spec_sha256": "4b30fb4a765bc3012cb7101bfc8718a8e0206ec93b126faf9157362b45c67906",
+      "difficulty": "medium",
+      "expected_findings": [
+        {
+          "category": "authorization",
+          "location": "#/paths/~1items/post",
+          "severity": "medium",
+          "title": "State-changing operation is unauthenticated"
+        }
+      ],
+      "actual_findings": [
+        {
+          "category": "authorization",
+          "location": "#/paths/~1items/post",
+          "severity": "medium",
+          "title": "State-changing operation is unauthenticated"
+        }
+      ],
+      "evidence_valid": true,
+      "sensitive_markers_removed": true,
+      "passed": true
+    },
+    {
+      "case_id": "optional-auth-alternative",
+      "spec_sha256": "58b82fd78e74f28b8d2239d3a6af34d30db92464521cc51af740d8e638eda9c6",
+      "difficulty": "medium",
+      "expected_findings": [
+        {
+          "category": "authorization",
+          "location": "#/paths/~1items/post",
+          "severity": "medium",
+          "title": "State-changing operation is unauthenticated"
+        }
+      ],
+      "actual_findings": [
+        {
+          "category": "authorization",
+          "location": "#/paths/~1items/post",
+          "severity": "medium",
+          "title": "State-changing operation is unauthenticated"
+        }
+      ],
+      "evidence_valid": true,
+      "sensitive_markers_removed": true,
+      "passed": true
+    },
+    {
+      "case_id": "required-undocumented",
+      "spec_sha256": "2ef61449110fe56d62f29c33796288ccc429510172d715b8d5096db3558ed346",
+      "difficulty": "medium",
+      "expected_findings": [
+        {
+          "category": "schema",
+          "location": "#/components/schemas/Item/required",
+          "severity": "low",
+          "title": "Required property has no documented constraints"
+        }
+      ],
+      "actual_findings": [
+        {
+          "category": "schema",
+          "location": "#/components/schemas/Item/required",
+          "severity": "low",
+          "title": "Required property has no documented constraints"
+        }
+      ],
+      "evidence_valid": true,
+      "sensitive_markers_removed": true,
+      "passed": true
+    },
+    {
+      "case_id": "required-forbidden",
+      "spec_sha256": "c8163b88cbdac78cdc5a067cf389b10f6fc1a8c23c9241ebf674dbd13732906f",
+      "difficulty": "medium",
+      "expected_findings": [
+        {
+          "category": "schema",
+          "location": "#/components/schemas/Item/required",
+          "severity": "high",
+          "title": "Required property is forbidden by the closed schema"
+        }
+      ],
+      "actual_findings": [
+        {
+          "category": "schema",
+          "location": "#/components/schemas/Item/required",
+          "severity": "high",
+          "title": "Required property is forbidden by the closed schema"
+        }
+      ],
+      "evidence_valid": true,
+      "sensitive_markers_removed": true,
+      "passed": true
+    },
+    {
+      "case_id": "parameter-override",
+      "spec_sha256": "067c374f66e3e24021dc5c56c3437ea9292f095f617c32a474c30c0b4b18ea0c",
+      "difficulty": "medium",
+      "expected_findings": [],
+      "actual_findings": [],
+      "evidence_valid": true,
+      "sensitive_markers_removed": true,
+      "passed": true
+    },
+    {
+      "case_id": "response-anchor-collision",
+      "spec_sha256": "e73520e916a3d63a429bccefd1b0b0ddc0d9efcb18a88f7141f0944e842867fb",
+      "difficulty": "medium",
+      "expected_findings": [
+        {
+          "category": "response_contract",
+          "location": "#/paths/~1items/get/responses",
+          "severity": "high",
+          "title": "No explicit 2xx response is declared"
+        },
+        {
+          "category": "response_contract",
+          "location": "#/paths/~1items/get/responses",
+          "severity": "low",
+          "title": "No error response is documented"
+        }
+      ],
+      "actual_findings": [
+        {
+          "category": "response_contract",
+          "location": "#/paths/~1items/get/responses",
+          "severity": "high",
+          "title": "No explicit 2xx response is declared"
+        },
+        {
+          "category": "response_contract",
+          "location": "#/paths/~1items/get/responses",
+          "severity": "low",
+          "title": "No error response is documented"
+        }
+      ],
+      "evidence_valid": true,
+      "sensitive_markers_removed": true,
+      "passed": true
+    },
+    {
+      "case_id": "sensitive-examples",
+      "spec_sha256": "5b088fea7e1811b95e5ea24465750fd5c9aee94167b11400bce795872f6225e2",
+      "difficulty": "medium",
+      "expected_findings": [],
+      "actual_findings": [],
+      "evidence_valid": true,
+      "sensitive_markers_removed": true,
+      "passed": true
+    }
+  ]
+}

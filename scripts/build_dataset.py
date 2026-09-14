@@ -694,6 +694,15 @@ def _expected_issue(finding: ReviewFinding) -> dict[str, Any]:
 
 
 def build() -> None:
+    raise RuntimeError(
+        "The v1.0 dataset and human references are frozen. "
+        "To reproduce its construction, use historical commit c528332 in a separate checkout. "
+        "Add new cases in a versioned supplementary dataset instead."
+    )
+
+
+def _historical_build() -> None:
+    """Archived construction procedure; deliberately not called by this version."""
     settings = _settings()
     records: list[dict[str, Any]] = []
     scenario_records: list[dict[str, Any]] = []

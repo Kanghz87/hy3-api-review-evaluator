@@ -37,7 +37,28 @@ Defaults are deliberately bounded:
 - 100 findings per accepted final report
 - five evidence references per finding
 
-Every limit is validated before the corresponding expensive or recursive operation.
+YAML construction counts depth and nodes before descending; aliases are rejected. JSON parsing
+recursion failures are converted to safe input errors, and both formats receive a post-parse shape
+check. These bounds reduce resource exhaustion risk but are not a general-purpose process sandbox.
+
+Sensitive schema context propagates to `example`, `examples`, `default`, `enum` and `const`, including
+parameters whose sensitive name is stored separately and password-format schemas. This preserves
+schema types while masking values. Evidence previews use the redacted document, not an isolated
+leaf that has lost its field context.
+
+Implementation 0.2.1 also propagates sensitive context through local references, including named
+component examples, and recognizes `X-API-Key` and header names declared by API-key schemes.
+Identified values are scrubbed from copied report text before judge requests, UI rendering and JSON
+export. CSV integrations must pass `spec=loaded_spec` to `build_csv_export` for document-aware
+scrubbing; the application does so. The legacy two-argument helper only performs text-pattern
+redaction because it has no source document. No schema references are downloaded.
+
+JSON duplicate keys and duplicate normalized YAML keys are rejected. Unquoted YAML timestamps are
+kept as strings; integer mapping keys normalize to strings. Non-JSON scalar types and non-finite
+numbers are rejected, and source pointers are limited to 500 characters. Inputs producing more
+than 100 deterministic findings or oversized deterministic context fail before a model request.
+Over-capacity model output is rejected without silently dropping findings. Contradictory judge
+failure flags/reasons are rejected instead of being interpreted as a passing result.
 
 ## Key handling
 
@@ -65,6 +86,23 @@ invalid score, or model substitution causes a safe failure; content is not parti
 Evidence previews are redacted before UI or export. The original uploaded document is not included
 in JSON exports; only its label, hash, version, operation count, and unresolved external-ref list are
 included.
+
+Document-aware output redaction preserves typed protocol enums (such as focus, severity and
+verdict), evaluator-generated hashes and implementation metadata. This exemption does not apply
+to arbitrary input dictionaries or narrative text. Sensitive finding IDs are replaced with stable
+opaque IDs in both reports and assessments. Text can be truncated to its schema limit after
+redaction; pointers containing sensitive text may also be masked. These sanitized output copies
+are for presentation/export, not rescoring; factual checks always use the original in-memory
+report and document. A missing location in the redacted projection is never treated as JSON null
+or as evidence for a redaction placeholder.
+
+Empty reports must provide matching coverage evidence, cannot hide locally known issues, and cannot
+pass with truncated or externally incomplete context. Even complete local coverage is conditional
+until a semantic judge checks the no-findings claim. This is report assessment, not API certification.
+
+The unsafe-advice heuristic examines authored recommendations and recognizes immediate negation;
+it does not treat malicious quoted evidence as an endorsed action. Indirect language, complex
+negation, novel secret formats and semantic attacks still require model judgment and human review.
 
 ## Not a sandbox or runtime verifier
 

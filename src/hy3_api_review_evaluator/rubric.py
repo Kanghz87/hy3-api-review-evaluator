@@ -36,7 +36,7 @@ def load_rubric() -> dict[str, Any]:
         value = yaml.safe_load(_rubric_text())
     except yaml.YAMLError as exc:
         raise ConfigurationError("The evaluation rubric is invalid YAML") from exc
-    if not isinstance(value, dict) or value.get("version") != "1.0":
+    if not isinstance(value, dict) or value.get("version") != "1.1":
         raise ConfigurationError("The evaluation rubric has an unsupported version")
     dimensions = value.get("dimensions")
     if not isinstance(dimensions, dict) or tuple(dimensions) != DIMENSION_ORDER:
