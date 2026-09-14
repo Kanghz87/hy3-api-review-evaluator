@@ -6,6 +6,7 @@
 
 - [配置说明](configuration.md)：服务连接、输入限制、token 预算和本地诊断。
 - [演示流程](demo_script.md)：两分钟应用演示的操作步骤与讲解安排。
+- [真实 Demo 预检](../reports/demo_preflight_0_2_1.md)：当前实现的 Hy3 实测结果、耗时与用量。
 
 ## 方法与实验
 
